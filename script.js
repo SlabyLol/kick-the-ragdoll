@@ -1,16 +1,15 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-canvas.width = 800;
-canvas.height = 600;
+canvas.width = window.innerWidth * 0.9;
+canvas.height = window.innerHeight * 0.7;
 
 const gravity = 0.5;
 const friction = 0.9;
 
 let mouse = { x: 0, y: 0, down: false };
-let walkMode = false;
 
-// Körperteil-Klasse
+// Ragdoll-Teil
 class Part {
   constructor(x, y, radius) {
     this.x = x;
@@ -20,7 +19,6 @@ class Part {
     this.radius = radius;
     this.fixed = false;
   }
-
   update() {
     if(this.fixed) return;
     let vx = (this.x - this.oldx) * friction;
@@ -29,16 +27,16 @@ class Part {
     this.oldy = this.y;
     this.x += vx;
     this.y += vy + gravity;
-
-    // Boden/Wände
+    
+    // Boden
     if(this.y + this.radius > canvas.height) {
       this.y = canvas.height - this.radius;
       this.oldy = this.y + vy * -0.5;
     }
+    // Wände
     if(this.x - this.radius < 0) { this.x = this.radius; this.oldx = this.x + vx * -0.5; }
     if(this.x + this.radius > canvas.width) { this.x = canvas.width - this.radius; this.oldx = this.x + vx * -0.5; }
   }
-
   draw() {
     ctx.beginPath();
     ctx.fillStyle = 'red';
@@ -47,14 +45,13 @@ class Part {
   }
 }
 
-// Gelenke/Constraints
+// Gelenk
 class Constraint {
   constructor(a, b, length) {
     this.a = a;
     this.b = b;
     this.length = length;
   }
-
   update() {
     let dx = this.b.x - this.a.x;
     let dy = this.b.y - this.a.y;
@@ -65,7 +62,6 @@ class Constraint {
     if(!this.a.fixed) { this.a.x -= offsetX; this.a.y -= offsetY; }
     if(!this.b.fixed) { this.b.x += offsetX; this.b.y += offsetY; }
   }
-
   draw() {
     ctx.beginPath();
     ctx.strokeStyle = 'black';
@@ -76,13 +72,13 @@ class Constraint {
   }
 }
 
-// Ragdoll erstellen
-let head = new Part(400, 100, 20);
-let body = new Part(400, 160, 25);
-let leftArm = new Part(360, 160, 10);
-let rightArm = new Part(440, 160, 10);
-let leftLeg = new Part(380, 240, 10);
-let rightLeg = new Part(420, 240, 10);
+// Ragdoll
+let head = new Part(canvas.width/2, 100, 20);
+let body = new Part(canvas.width/2, 160, 25);
+let leftArm = new Part(canvas.width/2-40, 160, 10);
+let rightArm = new Part(canvas.width/2+40, 160, 10);
+let leftLeg = new Part(canvas.width/2-20, 240, 10);
+let rightLeg = new Part(canvas.width/2+20, 240, 10);
 
 let parts = [head, body, leftArm, rightArm, leftLeg, rightLeg];
 let constraints = [
@@ -93,59 +89,40 @@ let constraints = [
   new Constraint(body, rightLeg, 80)
 ];
 
-// Drag & Drop
-let draggedPart = null;
-canvas.addEventListener('mousedown', e => {
-  mouse.down = true; mouse.x = e.offsetX; mouse.y = e.offsetY;
-  for(let p of parts) {
-    let dx = p.x - mouse.x;
-    let dy = p.y - mouse.y;
-    if(Math.sqrt(dx*dx + dy*dy) < p.radius) { draggedPart = p; p.fixed = true; break; }
-  }
-});
-canvas.addEventListener('mousemove', e => {
-  mouse.x = e.offsetX; mouse.y = e.offsetY;
-  if(draggedPart) { draggedPart.x = mouse.x; draggedPart.y = mouse.y; }
-});
-canvas.addEventListener('mouseup', () => { mouse.down = false; if(draggedPart) { draggedPart.fixed = false; draggedPart = null; } });
-
-// Aufstehen / Gehen Logik
+// Automatisches Aufstehen / Gehen
 let walkTime = 0;
-document.addEventListener('keydown', e => {
-  if(e.code === 'Space') walkMode = !walkMode;
-});
 
-function applyWalk() {
-  if(!walkMode) return;
+function autoWalk() {
   walkTime += 0.1;
-  let step = Math.sin(walkTime) * 5;
-
+  let step = Math.sin(walkTime) * 10;
   // Beine bewegen
   leftLeg.y = body.y + 80 + step;
   rightLeg.y = body.y + 80 - step;
-
-  // Körper leicht nach oben ziehen, Kopf stabil
-  body.y -= 0.2;
-  head.y -= 0.2;
-
+  // Körper aufrichten
+  body.y -= 0.15;
+  head.y -= 0.15;
   // Vorwärtsbewegung
-  let forward = 1.5;
-  for(let p of [head, body, leftArm, rightArm, leftLeg, rightLeg]) {
-    if(!p.fixed) p.x += forward;
-  }
+  let forward = 1.2;
+  for(let p of parts) { p.x += forward; }
 }
 
 function update() {
-  for(let i=0; i<5; i++) constraints.forEach(c => c.update());
-  parts.forEach(p => p.update());
-  applyWalk();
+  for(let i=0; i<5; i++) constraints.forEach(c=>c.update());
+  parts.forEach(p=>p.update());
+  autoWalk();
 }
 
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  constraints.forEach(c => c.draw());
-  parts.forEach(p => p.draw());
+  constraints.forEach(c=>c.draw());
+  parts.forEach(p=>p.draw());
 }
 
 function loop() { update(); draw(); requestAnimationFrame(loop); }
 loop();
+
+// Anpassung bei Fenstergröße
+window.addEventListener('resize', ()=>{
+  canvas.width = window.innerWidth * 0.9;
+  canvas.height = window.innerHeight * 0.7;
+});
