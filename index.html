@@ -4,25 +4,85 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kick the Ragdoll</title>
-<link rel="stylesheet" href="style.css">
+<style>
+body {margin:0; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f0f0f0; height:100vh;}
+canvas {border:2px solid #333; background:#fff; touch-action:none; max-width:100%; height:auto;}
+button {margin:5px; padding:8px 15px; font-size:1rem; cursor:pointer;}
+#coinDisplay {margin-top:10px; font-size:1.2rem; font-weight:bold;}
+#weaponPanel {margin-top:10px; display:none;}
+#startScreen {display:flex; flex-direction:column; align-items:center;}
+</style>
 </head>
 <body>
+
 <div id="startScreen">
   <h1>Kick the Ragdoll</h1>
   <p>Select your device:</p>
-  <button id="pcBtn">PC (Mouse drag)</button>
-  <button id="mobileBtn">Mobile (Touch drag)</button>
+  <button id="pcBtn">PC (Mouse)</button>
+  <button id="mobileBtn">Mobile (Touch)</button>
 </div>
+
 <canvas id="gameCanvas" style="display:none;"></canvas>
-<div id="weaponPanel" style="display:none;">
+
+<div id="weaponPanel">
   <button data-weapon="bat">Bat</button>
   <button data-weapon="hammer">Hammer</button>
   <button data-weapon="punch">Punch</button>
   <button data-weapon="bomb">Bomb</button>
 </div>
-<div id="coinDisplay" style="display:none;">
-  Coins: <span id="coins">0</span>
-</div>
-<script src="script.js"></script>
+
+<div id="coinDisplay" style="display:none;">Coins: <span id="coins">0</span></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let useMobileDrag=false;
+let currentWeapon=null;
+let weaponSprite={x:0,y:0,visible:false};
+let coins=0;
+
+// Start buttons
+document.getElementById('pcBtn').addEventListener('click',()=>startGame(false));
+document.getElementById('mobileBtn').addEventListener('click',()=>startGame(true));
+
+// Weapon panel
+document.querySelectorAll('#weaponPanel button').forEach(btn=>btn.addEventListener('click',()=>{currentWeapon=btn.dataset.weapon;}));
+
+function startGame(isMobile){
+    useMobileDrag=isMobile;
+
+    // Buttons ausblenden, Panels einblenden
+    document.getElementById('startScreen').style.display='none';
+    document.getElementById('weaponPanel').style.display='block';
+    document.getElementById('coinDisplay').style.display='block';
+    canvas.style.display='block';
+
+    // Canvas sofort setzen
+    canvas.width = window.innerWidth * 0.9;
+    canvas.height = window.innerHeight * 0.7;
+
+    // Jetzt das Spiel initialisieren
+    initGame();
+}
+
+function initGame(){
+    // Beispiel: Canvas mit Hintergrund füllen
+    function draw(){
+        ctx.fillStyle='#fff';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle='red';
+        ctx.font='30px sans-serif';
+        ctx.fillText('Game started! Drag the ragdoll!', 50,50);
+        requestAnimationFrame(draw);
+    }
+    draw();
+}
+
+window.addEventListener('resize',()=>{
+    canvas.width=window.innerWidth*0.9;
+    canvas.height=window.innerHeight*0.7;
+});
+</script>
+
 </body>
 </html>
