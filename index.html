@@ -7,17 +7,22 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="startScreen">
-    <h1>Kick the Ragdoll</h1>
-    <p>Select your device:</p>
-    <button id="pcBtn">PC (Mouse drag)</button>
-    <button id="mobileBtn">Mobile (Touch drag)</button>
-  </div>
-  <canvas id="gameCanvas" style="display:none;"></canvas>
-  <div id="weaponPanel" style="display:none;">
-    <button data-weapon="bat">Bat</button>
-    <button data-weapon="hammer">Hammer</button>
-  </div>
-  <script src="script.js"></script>
+<div id="startScreen">
+  <h1>Kick the Ragdoll</h1>
+  <p>Select your device:</p>
+  <button id="pcBtn">PC (Mouse drag)</button>
+  <button id="mobileBtn">Mobile (Touch drag)</button>
+</div>
+<canvas id="gameCanvas" style="display:none;"></canvas>
+<div id="weaponPanel" style="display:none;">
+  <button data-weapon="bat">Bat</button>
+  <button data-weapon="hammer">Hammer</button>
+  <button data-weapon="punch">Punch</button>
+  <button data-weapon="bomb">Bomb</button>
+</div>
+<div id="coinDisplay" style="display:none;">
+  Coins: <span id="coins">0</span>
+</div>
+<script src="script.js"></script>
 </body>
 </html>
