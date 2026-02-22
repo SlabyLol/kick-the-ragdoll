@@ -181,12 +181,13 @@ function update(){
     b.timer--;
 
     if(b.timer<=0){
-      let count=30; let damageVal=weapons[b.type].damage; let knockback=10; if(b.type==="tnt"){count=50; damageVal=40; knockback=20;} 
+      let count=30; let damageVal=weapons[b.type].damage; let knockback=10; 
+      if(b.type==="tnt"){count=50; damageVal=40; knockback=20;} 
       else if(b.type==="grenade"){count=40; damageVal=25; knockback=15;}
       createParticles(b.x,b.y,weapons[b.type].color,count);
       shake=knockback;
 
-      // Apply knockback to ragdoll
+      // Knockback
       ragdollParts.forEach(p=>{let dx=p.x-b.x,dy=p.y-b.y,d=Math.sqrt(dx*dx+dy*dy); if(d<200){p.oldx-=dx/d*knockback; p.oldy-=dy/d*knockback; damage(damageVal); coins+=5; updateCoins();}});
 
       b.exploded=true;
@@ -208,9 +209,32 @@ function draw(){
   constraints.forEach(c=>c.draw());
   ragdollParts.forEach(p=>p.draw());
 
-  if(weaponObj){ctx.fillStyle=weapons[weaponObj.type].color;
-    if(["bat","thunderstruck","axe","sword","spear"].includes(weaponObj.type)){ctx.fillRect(weaponObj.x-5,weaponObj.y-40,10,80);}
-    if(weaponObj.type==="hammer"){ctx.fillRect(weaponObj.x-4,weaponObj.y-40,8,60); ctx.fillStyle="#555"; ctx.fillRect(weaponObj.x-15,weaponObj.y-45,30,15);}}
+  // Weapon drawing with details
+  if(weaponObj){
+    ctx.save(); ctx.translate(weaponObj.x, weaponObj.y);
+    switch(weaponObj.type){
+      case "bat":
+        ctx.fillStyle="#8b5a2b"; ctx.fillRect(-5,-40,10,80);
+        ctx.fillStyle="#333"; ctx.fillRect(-5,30,10,10); break;
+      case "hammer":
+        ctx.fillStyle="#8b5a2b"; ctx.fillRect(-4,-40,8,60);
+        ctx.fillStyle="#555"; ctx.fillRect(-15,-45,30,15); break;
+      case "axe":
+        ctx.fillStyle="#964B00"; ctx.fillRect(-5,-40,10,80);
+        ctx.fillStyle="#888"; ctx.beginPath(); ctx.moveTo(5,-40); ctx.lineTo(30,-20); ctx.lineTo(5,-10); ctx.fill(); break;
+      case "sword":
+        ctx.fillStyle="#999"; ctx.fillRect(-2,-60,4,60);
+        ctx.fillStyle="#555"; ctx.fillRect(-8,-10,16,4); break;
+      case "spear":
+        ctx.fillStyle="#666"; ctx.fillRect(-2,-70,4,70);
+        ctx.fillStyle="#ccc"; ctx.beginPath(); ctx.moveTo(-5,-70); ctx.lineTo(5,-70); ctx.lineTo(0,-80); ctx.fill(); break;
+      case "thunderstruck":
+        ctx.strokeStyle="cyan"; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(0,-40); ctx.lineTo(0,40); ctx.stroke(); break;
+      default:
+        ctx.fillStyle=weapons[weaponObj.type].color; ctx.fillRect(-5,-40,10,80); break;
+    }
+    ctx.restore();
+  }
 
   bombs.forEach(b=>{ctx.fillStyle=weapons[b.type].color; ctx.beginPath(); ctx.arc(b.x,b.y,12,0,Math.PI*2); ctx.fill();});
   particles.forEach(p=>{ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();});
