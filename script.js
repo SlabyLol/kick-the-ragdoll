@@ -2,6 +2,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let useMobileDrag = false;
 let currentWeapon = null;
+let weaponSprite = { x: 0, y: 0, visible: false };
 
 // Start screen
 document.getElementById('pcBtn').addEventListener('click', () => startGame(false));
@@ -20,7 +21,6 @@ function startGame(isMobile){
   initGame();
 }
 
-// --- Game Setup ---
 function initGame(){
   const gravity = 0.5;
   const friction = 0.9;
@@ -35,7 +35,6 @@ function initGame(){
       this.x=x; this.y=y;
       this.oldx=x; this.oldy=y;
       this.radius=radius; this.fixed=false;
-      this.fallen=false;
     }
     update(){
       if(this.fixed) return;
@@ -44,10 +43,7 @@ function initGame(){
       this.oldx=this.x; this.oldy=this.y;
       this.x+=vx;
       this.y+=vy+gravity;
-
-      // Floor
       if(this.y+this.radius>floorY){ this.y=floorY-this.radius; this.oldy=this.y+vy*-0.5; }
-      // Walls
       if(this.x-this.radius<0){ this.x=this.radius; this.oldx=this.x+vx*-0.5; }
       if(this.x+this.radius>canvas.width){ this.x=canvas.width-this.radius; this.oldx=this.x+vx*-0.5; }
     }
@@ -59,7 +55,7 @@ function initGame(){
     }
   }
 
-  // --- Constraints ---
+  // --- Constraint ---
   class Constraint{
     constructor(a,b,length){
       this.a=a; this.b=b; this.length=length;
@@ -72,7 +68,6 @@ function initGame(){
       let ox=dx*diff; let oy=dy*diff;
       if(!this.a.fixed){ this.a.x-=ox; this.a.y-=oy; }
       if(!this.b.fixed){ this.b.x+=ox; this.b.y+=oy; }
-
       [this.a,this.b].forEach(p=>{
         if(p.y+p.radius>floorY){ p.y=floorY-p.radius; }
       });
@@ -115,15 +110,17 @@ function initGame(){
     });
     canvas.addEventListener('mousemove', e=>{
       mouse.x=e.offsetX; mouse.y=e.offsetY;
+      if(currentWeapon){ weaponSprite.x=mouse.x; weaponSprite.y=mouse.y; weaponSprite.visible=true; }
       if(draggedPart){ draggedPart.x=mouse.x; draggedPart.y=mouse.y; }
     });
-    canvas.addEventListener('mouseup', ()=>{ if(draggedPart){ draggedPart.fixed=false; draggedPart=null; } });
+    canvas.addEventListener('mouseup', ()=>{ if(draggedPart){ draggedPart.fixed=false; draggedPart=null; } weaponSprite.visible=false; });
   } else {
     canvas.addEventListener('touchstart', e=>{
       let touch=e.touches[0];
       mouse.down=true;
       mouse.x=touch.clientX-canvas.getBoundingClientRect().left;
       mouse.y=touch.clientY-canvas.getBoundingClientRect().top;
+      weaponSprite.x=mouse.x; weaponSprite.y=mouse.y; weaponSprite.visible=true;
       for(let p of parts){
         let dx=p.x-mouse.x; let dy=p.y-mouse.y;
         if(Math.sqrt(dx*dx+dy*dy)<p.radius){ draggedPart=p; p.fixed=true; break; }
@@ -133,9 +130,10 @@ function initGame(){
       let touch=e.touches[0];
       mouse.x=touch.clientX-canvas.getBoundingClientRect().left;
       mouse.y=touch.clientY-canvas.getBoundingClientRect().top;
+      weaponSprite.x=mouse.x; weaponSprite.y=mouse.y;
       if(draggedPart){ draggedPart.x=mouse.x; draggedPart.y=mouse.y; }
     });
-    canvas.addEventListener('touchend', ()=>{ if(draggedPart){ draggedPart.fixed=false; draggedPart=null; } });
+    canvas.addEventListener('touchend', ()=>{ if(draggedPart){ draggedPart.fixed=false; draggedPart=null; } weaponSprite.visible=false; });
   }
 
   // --- Weapons ---
@@ -151,26 +149,21 @@ function initGame(){
     });
   });
 
-  // --- Autonomous walk / stumble ---
+  // --- Autonomous standing & stumble ---
   let walkTime=0;
   let fallCooldown=0;
-  function autoWalk(){
-    walkTime+=0.02; // slow
+  function autoStand(){
+    walkTime+=0.02;
     let step=Math.sin(walkTime)*5;
     leftLeg.y=Math.min(body.y+80+step,floorY-leftLeg.radius);
     rightLeg.y=Math.min(body.y+80-step,floorY-rightLeg.radius);
-
     if(body.y>140) body.y-=0.15;
     if(head.y>100) head.y-=0.15;
-
-    let forward=0.5;
-    parts.forEach(p=>p.x+=forward);
-
-    // simple stumble
+    // stumble simulation
     let tilt=Math.abs(leftLeg.y-rightLeg.y);
     if(tilt>30 && fallCooldown<=0){
-      parts.forEach(p=>p.y+=15); // fall down
-      fallCooldown=100; // frames to recover
+      parts.forEach(p=>p.y+=15); // fall
+      fallCooldown=100;
     }
     if(fallCooldown>0) fallCooldown--;
   }
@@ -178,13 +171,20 @@ function initGame(){
   function update(){
     for(let i=0;i<5;i++) constraints.forEach(c=>c.update());
     parts.forEach(p=>p.update());
-    autoWalk();
+    autoStand();
   }
 
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     constraints.forEach(c=>c.draw());
     parts.forEach(p=>p.draw());
+    // draw weapon
+    if(currentWeapon && weaponSprite.visible){
+      ctx.fillStyle='brown';
+      ctx.fillRect(weaponSprite.x-10, weaponSprite.y-5, 20, 10);
+      ctx.fillStyle='black';
+      ctx.fillText(currentWeapon, weaponSprite.x-15, weaponSprite.y-10);
+    }
   }
 
   function loop(){ update(); draw(); requestAnimationFrame(loop); }
