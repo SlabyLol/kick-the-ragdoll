@@ -63,7 +63,7 @@ let unlocked={punch:true,bat:true,hammer:true,bomb:false,axe:false,sword:false,s
 let ragdollParts=[],constraints=[],draggingPart=null,weaponObj=null,weaponsOnField=[];
 let dead=false,blueBuddyClicks=0,shopLocked=false;
 
-// Weapons stats
+// Weapon stats
 const weapons={
 punch:{damage:5,mass:1},
 bat:{damage:8,mass:2},
@@ -71,9 +71,9 @@ hammer:{damage:12,mass:3},
 axe:{damage:18,mass:3},
 sword:{damage:20,mass:2.5},
 spear:{damage:22,mass:2.8},
-bomb:{damage:25,radius:40,mass:2},
-grenade:{damage:25,radius:35,mass:1.5},
-tnt:{damage:40,radius:50,mass:3},
+bomb:{damage:25,radius:20,mass:2},
+grenade:{damage:25,radius:20,mass:1.5},
+tnt:{damage:40,radius:25,mass:3},
 thunderstruck:{damage:30,mass:3}
 };
 
@@ -194,7 +194,6 @@ function loop(){update(); draw(); requestAnimationFrame(loop);}
 loop();
 
 function updateHealth(){document.getElementById("healthFill").style.width=(health/maxHealth*100)+"%";}
-});
 </script>
 </body>
 </html>
