@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kick the Ragdoll+</title>
+<title>Kick the Ragdoll+ Thunderstruck</title>
 <style>
 body { margin:0; background:#ececec; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; }
 h1{margin:10px;}
@@ -43,6 +43,7 @@ button{padding:8px 14px; margin:4px; font-size:14px; cursor:pointer;}
     <button class="buy" data-weapon="spear" data-price="250">Spear (250)</button>
     <button class="buy" data-weapon="grenade" data-price="120">Grenade (120)</button>
     <button class="buy" data-weapon="tnt" data-price="200">TNT (200)</button>
+    <button class="buy" data-weapon="thunderstruck" data-price="300">Thunderstruck (300)</button>
   </div>
 </div>
 
@@ -54,10 +55,11 @@ const ctx=canvas.getContext("2d");
 let width,height;
 let coins=0, health=100, maxHealth=100;
 let currentWeapon="punch";
-let unlocked={punch:true,bat:true,hammer:true,bomb:false,axe:false,sword:false,spear:false,grenade:false,tnt:false};
+let unlocked={punch:true,bat:true,hammer:true,bomb:false,axe:false,sword:false,spear:false,grenade:false,tnt:false,thunderstruck:false};
 let ragdollParts=[], constraints=[], gravity=0.6;
-let draggingPart=null, weaponObj=null, bombs=[], particles=[], thunderstruck=[], shake=0;
+let draggingPart=null, weaponObj=null, bombs=[], particles=[], flashes=[], shake=0;
 
+// Weapons
 const weapons={
   punch:{damage:5,mass:1,color:"red",free:true},
   bat:{damage:8,mass:2,color:"#8b5a2b",free:true},
@@ -67,7 +69,8 @@ const weapons={
   spear:{damage:22,mass:2.8,color:"#666",free:false,price:250},
   bomb:{damage:25,radius:150,mass:2,color:"black",free:false,price:100},
   grenade:{damage:20,radius:120,mass:1.5,color:"darkgreen",free:false,price:120},
-  tnt:{damage:35,radius:180,mass:3,color:"brown",free:false,price:200}
+  tnt:{damage:35,radius:180,mass:3,color:"brown",free:false,price:200},
+  thunderstruck:{damage:30,mass:3,color:"cyan",free:false,price:300}
 };
 
 // Start Buttons
@@ -84,6 +87,7 @@ document.querySelectorAll("button[data-weapon]").forEach(btn=>{
   };
 });
 
+// Game start
 function startGame(){
   canvas.style.display="block";
   document.getElementById("ui").style.display="block";
@@ -94,13 +98,14 @@ function startGame(){
   loop();
 }
 
-// Part & Constraint
+// Ragdoll Physics
 class Part{
   constructor(x,y,r){this.x=x; this.y=y; this.oldx=x; this.oldy=y; this.r=r;}
   update(){
     let vx=this.x-this.oldx, vy=this.y-this.oldy;
     this.oldx=this.x; this.oldy=this.y;
     this.x+=vx; this.y+=vy+gravity;
+    // collision with walls/floor/ceiling
     if(this.y+this.r>height){this.y=height-this.r; this.oldy=this.y+vy*-0.5;}
     if(this.y-this.r<0){this.y=this.r; this.oldy=this.y+vy*-0.5;}
     if(this.x-this.r<0){this.x=this.r; this.oldx=this.x+vx*-0.5;}
@@ -108,7 +113,6 @@ class Part{
   }
   draw(){ctx.fillStyle="red"; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fill();}
 }
-
 class Constraint{
   constructor(a,b,l){this.a=a; this.b=b; this.l=l;}
   update(){
@@ -144,7 +148,7 @@ function updateCoins(){document.getElementById("coins").innerText=coins;}
 // Pointer Events
 canvas.addEventListener("pointerdown",e=>{
   const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
-  if(["bat","hammer","axe","sword","spear"].includes(currentWeapon)){weaponObj={x:mx,y:my,type:currentWeapon};}
+  if(["bat","hammer","axe","sword","spear","thunderstruck"].includes(currentWeapon)){weaponObj={x:mx,y:my,type:currentWeapon};}
   if(["bomb","grenade","tnt"].includes(currentWeapon)){bombs.push({x:mx,y:my,type:currentWeapon,timer:60});}
   ragdollParts.forEach(p=>{
     let dx=p.x-mx, dy=p.y-my;
@@ -163,22 +167,17 @@ canvas.addEventListener("pointerup",()=>{draggingPart=null; weaponObj=null;});
 
 // Particles
 function createParticles(x,y,color,count){
-  for(let i=0;i<count;i++){
-    particles.push({x,y,vx:(Math.random()-0.5)*10,vy:(Math.random()-0.5)*10,color,radius:Math.random()*3+2,life:30});
-  }
+  for(let i=0;i<count;i++){particles.push({x,y,vx:(Math.random()-0.5)*10,vy:(Math.random()-0.5)*10,color,radius:Math.random()*3+2,life:30});}
 }
 
-// Thunderstruck-Blitze
-function createThunderstruck(x,y){thunderstruck.push({x,y,life:5});}
-function updateThunderstruck(){thunderstruck.forEach(t=>t.life--); thunderstruck=thunderstruck.filter(t=>t.life>0);}
-function drawThunderstruck(){
-  thunderstruck.forEach(t=>{
-    ctx.strokeStyle="white"; ctx.lineWidth=2+Math.random()*3;
-    ctx.beginPath(); ctx.moveTo(t.x,t.y);
-    for(let i=0;i<5;i++){
-      let offsetX=(Math.random()-0.5)*50, offsetY=(Math.random())*40;
-      ctx.lineTo(t.x+offsetX,t.y+offsetY);
-    } ctx.stroke();
+// Thunderstruck Effect
+let thunderStrikes=[];
+function strikeThunder(x1,y1,x2,y2){thunderStrikes.push({x1,y1,x2,y2,life:5});}
+function updateThunder(){thunderStrikes.forEach(t=>t.life--); thunderStrikes=thunderStrikes.filter(t=>t.life>0);}
+function drawThunder(){
+  thunderStrikes.forEach(t=>{
+    ctx.strokeStyle="cyan"; ctx.lineWidth=2+Math.random()*2;
+    ctx.beginPath(); ctx.moveTo(t.x1,t.y1); ctx.lineTo(t.x2,t.y2); ctx.stroke();
   });
 }
 
@@ -194,6 +193,7 @@ function update(){
         p.oldx-=dx*0.8; p.oldy-=dy*0.8;
         damage(weapons[weaponObj.type].damage);
         coins+=2; updateCoins();
+        if(weaponObj.type==="thunderstruck"){strikeThunder(weaponObj.x,weaponObj.y,p.x,p.y); shake=10; createParticles(p.x,p.y,"cyan",10);}
       }
     });
   }
@@ -212,8 +212,6 @@ function update(){
         }
       });
       createParticles(b.x,b.y,weapons[b.type].color,50);
-      createThunderstruck(b.x,b.y); // Thunderstruck-Blitz
-      coins+=5; updateCoins();
       shake=20;
       b.exploded=true;
     }
@@ -223,7 +221,7 @@ function update(){
   particles.forEach(p=>{p.x+=p.vx; p.y+=p.vy; p.life--;});
   particles=particles.filter(p=>p.life>0);
 
-  updateThunderstruck();
+  updateThunder();
 }
 
 // Draw
@@ -238,11 +236,12 @@ function draw(){
     ctx.fillStyle=weapons[weaponObj.type].color;
     if(["bat","axe","sword","spear"].includes(weaponObj.type)){ctx.fillRect(weaponObj.x-5,weaponObj.y-40,10,80);}
     if(weaponObj.type==="hammer"){ctx.fillRect(weaponObj.x-4,weaponObj.y-40,8,60); ctx.fillStyle="#555"; ctx.fillRect(weaponObj.x-15,weaponObj.y-45,30,15);}
+    if(weaponObj.type==="thunderstruck"){ctx.fillRect(weaponObj.x-4,weaponObj.y-40,8,80);}
   }
 
   bombs.forEach(b=>{ctx.fillStyle=weapons[b.type].color; ctx.beginPath(); ctx.arc(b.x,b.y,12,0,Math.PI*2); ctx.fill();});
   particles.forEach(p=>{ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();});
-  drawThunderstruck();
+  drawThunder();
 
   if(shake>0){ctx.restore();}
 }
