@@ -14,52 +14,31 @@ body{
   flex-direction:column;
   align-items:center;
 }
-
 h1{margin:10px;}
-
 canvas{
   background:white;
   border:3px solid #222;
   display:none;
-  touch-action:none;
 }
-
-#ui{
-  display:none;
-  text-align:center;
-}
-
-#healthBar{
-  width:220px;
-  height:18px;
-  background:#333;
-  margin:auto;
-  margin-bottom:5px;
-}
-
-#healthFill{
-  height:100%;
-  width:100%;
-  background:lime;
-}
-
+#ui{display:none;text-align:center;}
 button{
   padding:8px 14px;
   margin:4px;
   font-size:14px;
   cursor:pointer;
 }
-
-.weaponBar{
-  margin-top:6px;
+.free{background:#77dd77;}
+.buy{background:#ffb347;}
+#healthBar{
+  width:220px;
+  height:18px;
+  background:#333;
+  margin:auto;
 }
-
-.free{
-  background:#77dd77;
-}
-
-.buy{
-  background:#ffb347;
+#healthFill{
+  height:100%;
+  width:100%;
+  background:lime;
 }
 </style>
 </head>
@@ -68,28 +47,23 @@ button{
 <h1>Kick the Ragdoll</h1>
 
 <div id="startScreen">
-  <button id="startBtn">Start Game</button>
+  <button id="pcBtn">PC Mode</button>
+  <button id="mobileBtn">Mobile Mode</button>
 </div>
 
 <canvas id="gameCanvas"></canvas>
 
 <div id="ui">
   <div>Coins: <span id="coins">0</span></div>
-  <div id="healthBar">
-    <div id="healthFill"></div>
-  </div>
+  <div id="healthBar"><div id="healthFill"></div></div>
 
-  <div class="weaponBar">
-    <!-- FREE WEAPONS -->
+  <div>
     <button class="free" data-weapon="punch">Punch (Free)</button>
     <button class="free" data-weapon="bat">Bat (Free)</button>
     <button class="free" data-weapon="hammer">Hammer (Free)</button>
   </div>
-
-  <div class="weaponBar">
-    <!-- BUY WEAPONS -->
+  <div>
     <button class="buy" data-weapon="bomb" data-price="100">Bomb (100)</button>
-    <button class="buy" data-weapon="superbomb" data-price="250">Super Bomb (250)</button>
   </div>
 </div>
 
@@ -104,7 +78,7 @@ let health=100;
 let maxHealth=100;
 
 let currentWeapon="punch";
-let unlocked={punch:true,bat:true,hammer:true,bomb:false,superbomb:false};
+let unlocked={punch:true,bat:true,hammer:true,bomb:false};
 
 let ragdollParts=[];
 let constraints=[];
@@ -112,24 +86,23 @@ let gravity=0.6;
 let floor;
 
 let draggingPart=null;
+let weaponObj=null;
 let bombs=[];
 
-document.getElementById("startBtn").onclick=startGame;
+document.getElementById("pcBtn").onclick=()=>startGame();
+document.getElementById("mobileBtn").onclick=()=>startGame();
 
 document.querySelectorAll("button[data-weapon]").forEach(btn=>{
   btn.onclick=()=>{
     const weapon=btn.dataset.weapon;
     const price=parseInt(btn.dataset.price||0);
-
     if(unlocked[weapon]){
       currentWeapon=weapon;
-    } else {
-      if(coins>=price){
-        coins-=price;
-        unlocked[weapon]=true;
-        currentWeapon=weapon;
-        updateCoins();
-      }
+    } else if(coins>=price){
+      coins-=price;
+      unlocked[weapon]=true;
+      currentWeapon=weapon;
+      updateCoins();
     }
   };
 });
@@ -141,7 +114,6 @@ function startGame(){
 
   canvas.width=window.innerWidth*0.9;
   canvas.height=window.innerHeight*0.65;
-
   floor=canvas.height;
 
   spawnRagdoll();
@@ -150,19 +122,13 @@ function startGame(){
 
 class Part{
   constructor(x,y,r){
-    this.x=x;
-    this.y=y;
-    this.oldx=x;
-    this.oldy=y;
-    this.r=r;
+    this.x=x;this.y=y;this.oldx=x;this.oldy=y;this.r=r;
   }
   update(){
     let vx=this.x-this.oldx;
     let vy=this.y-this.oldy;
-
     this.oldx=this.x;
     this.oldy=this.y;
-
     this.x+=vx;
     this.y+=vy+gravity;
 
@@ -186,14 +152,10 @@ class Constraint{
     let dy=this.b.y-this.a.y;
     let d=Math.sqrt(dx*dx+dy*dy);
     let diff=(this.l-d)/d/2;
-
     let ox=dx*diff;
     let oy=dy*diff;
-
-    this.a.x-=ox;
-    this.a.y-=oy;
-    this.b.x+=ox;
-    this.b.y+=oy;
+    this.a.x-=ox;this.a.y-=oy;
+    this.b.x+=ox;this.b.y+=oy;
   }
   draw(){
     ctx.strokeStyle="black";
@@ -208,7 +170,6 @@ class Constraint{
 function spawnRagdoll(){
   health=maxHealth;
   updateHealth();
-
   ragdollParts=[];
   constraints=[];
 
@@ -236,7 +197,6 @@ function damage(amount){
   health-=amount;
   if(health<0)health=0;
   updateHealth();
-
   if(health===0){
     setTimeout(spawnRagdoll,1000);
   }
@@ -245,7 +205,6 @@ function damage(amount){
 function updateHealth(){
   document.getElementById("healthFill").style.width=
     (health/maxHealth*100)+"%";
-
   document.getElementById("healthFill").style.background=
     health>50?"lime":health>20?"orange":"red";
 }
@@ -259,55 +218,67 @@ canvas.addEventListener("pointerdown",e=>{
   const mx=e.clientX-rect.left;
   const my=e.clientY-rect.top;
 
+  if(currentWeapon==="bat"||currentWeapon==="hammer"){
+    weaponObj={x:mx,y:my,type:currentWeapon};
+  }
+
+  if(currentWeapon==="bomb"){
+    bombs.push({x:mx,y:my,timer:60});
+  }
+
   ragdollParts.forEach(p=>{
-    const dx=p.x-mx;
-    const dy=p.y-my;
+    let dx=p.x-mx;
+    let dy=p.y-my;
     if(Math.sqrt(dx*dx+dy*dy)<30){
       draggingPart=p;
-
       if(currentWeapon==="punch"){
-        p.oldx-=dx*0.3;
-        damage(4);
+        p.oldx-=dx*0.4;
+        damage(5);
         coins+=1;
+        updateCoins();
       }
-
-      if(currentWeapon==="bat"){
-        p.oldx-=dx*0.6;
-        damage(8);
-        coins+=2;
-      }
-
-      if(currentWeapon==="hammer"){
-        p.oldx-=dx*1;
-        damage(12);
-        coins+=3;
-      }
-
-      if(currentWeapon==="bomb"||currentWeapon==="superbomb"){
-        bombs.push({x:mx,y:my,timer:60,
-          power:currentWeapon==="bomb"?80:150});
-      }
-
-      updateCoins();
     }
   });
 });
 
 canvas.addEventListener("pointermove",e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left;
+  const my=e.clientY-rect.top;
+
   if(draggingPart){
-    const rect=canvas.getBoundingClientRect();
-    draggingPart.x=e.clientX-rect.left;
-    draggingPart.y=e.clientY-rect.top;
+    draggingPart.x=mx;
+    draggingPart.y=my;
+  }
+
+  if(weaponObj){
+    weaponObj.x=mx;
+    weaponObj.y=my;
   }
 });
 
 canvas.addEventListener("pointerup",()=>{
   draggingPart=null;
+  weaponObj=null;
 });
 
 function update(){
   constraints.forEach(c=>c.update());
   ragdollParts.forEach(p=>p.update());
+
+  if(weaponObj){
+    ragdollParts.forEach(p=>{
+      let dx=p.x-weaponObj.x;
+      let dy=p.y-weaponObj.y;
+      let dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<40){
+        p.oldx-=dx*0.8;
+        damage(weaponObj.type==="hammer"?12:8);
+        coins+=weaponObj.type==="hammer"?3:2;
+        updateCoins();
+      }
+    });
+  }
 
   bombs.forEach(b=>{
     b.timer--;
@@ -315,8 +286,7 @@ function update(){
       ragdollParts.forEach(p=>{
         let dx=p.x-b.x;
         let dy=p.y-b.y;
-        let dist=Math.sqrt(dx*dx+dy*dy);
-        if(dist<150){
+        if(Math.sqrt(dx*dx+dy*dy)<150){
           p.oldx-=dx*0.7;
           damage(20);
         }
@@ -335,6 +305,19 @@ function draw(){
 
   constraints.forEach(c=>c.draw());
   ragdollParts.forEach(p=>p.draw());
+
+  if(weaponObj){
+    if(weaponObj.type==="bat"){
+      ctx.fillStyle="#8b5a2b";
+      ctx.fillRect(weaponObj.x-5,weaponObj.y-40,10,80);
+    }
+    if(weaponObj.type==="hammer"){
+      ctx.fillStyle="#8b5a2b";
+      ctx.fillRect(weaponObj.x-4,weaponObj.y-40,8,60);
+      ctx.fillStyle="#555";
+      ctx.fillRect(weaponObj.x-15,weaponObj.y-45,30,15);
+    }
+  }
 
   bombs.forEach(b=>{
     ctx.fillStyle="black";
