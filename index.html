@@ -1,14 +1,19 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kick the Ragdoll – Autonom</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kick the Ragdoll</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Kick the Ragdoll</h1>
-  <canvas id="gameCanvas"></canvas>
+  <div id="startScreen">
+    <h1>Kick the Ragdoll</h1>
+    <p>Select your device:</p>
+    <button id="pcBtn">PC (Mouse drag)</button>
+    <button id="mobileBtn">Mobile (Touch drag)</button>
+  </div>
+  <canvas id="gameCanvas" style="display:none;"></canvas>
   <script src="script.js"></script>
 </body>
 </html>
