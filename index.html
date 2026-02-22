@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,18 +8,21 @@
 body { margin:0; background:#ececec; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; }
 h1{margin:10px;}
 canvas{background:white; border:4px solid #222; display:none; touch-action:none; position:relative; z-index:1;}
-#ui, #startScreen { position:relative; z-index:10; text-align:center; }
+#ui, #startScreen, #shopPopup { position:relative; z-index:10; text-align:center; }
 button{padding:8px 14px; margin:4px; font-size:14px; cursor:pointer;}
 .free{background:#77dd77;}
 .buy{background:#ffb347;}
 #healthBar{width:220px; height:18px; background:#333; margin:auto;}
 #healthFill{height:100%; width:100%; background:lime;}
-#shopTitle{font-weight:bold; color:#00aaff; margin-top:10px;}
+#shopPopup { display:none; position:absolute; top:50px; left:50%; transform:translateX(-50%); background:#fff; border:2px solid #00aaff; padding:20px; width:300px; box-shadow:0 0 10px #000;}
+#blueBuddy { width:50px; height:50px; background:#00aaff; border-radius:50%; margin:auto; margin-bottom:10px; }
+#dialog { font-size:14px; margin-bottom:10px; }
+#activeWeapon { font-weight:bold; margin-top:5px; color:#333; }
 </style>
 </head>
 <body>
 
-<h1>Kick the Ragdoll+ Blue Buddy Shop</h1>
+<h1>Kick the Ragdoll+</h1>
 
 <div id="startScreen">
   <button id="pcBtn">PC Mode</button>
@@ -31,14 +34,17 @@ button{padding:8px 14px; margin:4px; font-size:14px; cursor:pointer;}
 <div id="ui">
   <div>Coins: <span id="coins">0</span></div>
   <div id="healthBar"><div id="healthFill"></div></div>
+  <div id="activeWeapon">Current Weapon: Punch</div>
+  <button id="openShop">Open Blue Buddy Shop</button>
+</div>
 
-  <div id="shopTitle">Blue Buddy Shop</div>
+<div id="shopPopup">
+  <div id="blueBuddy"></div>
+  <div id="dialog">Hi! Buy weapons here!</div>
   <div>
     <button class="free" data-weapon="punch">Punch (Free)</button>
     <button class="free" data-weapon="bat">Bat (Free)</button>
     <button class="free" data-weapon="hammer">Hammer (Free)</button>
-  </div>
-  <div>
     <button class="buy" data-weapon="bomb" data-price="100">Bomb (100)</button>
     <button class="buy" data-weapon="axe" data-price="150">Axe (150)</button>
     <button class="buy" data-weapon="sword" data-price="200">Sword (200)</button>
@@ -47,57 +53,63 @@ button{padding:8px 14px; margin:4px; font-size:14px; cursor:pointer;}
     <button class="buy" data-weapon="tnt" data-price="200">TNT (200)</button>
     <button class="buy" data-weapon="thunderstruck" data-price="300">Thunderstruck (300)</button>
   </div>
+  <button id="closeShop">Close Shop</button>
 </div>
 
 <script>
+// English Game Script
 document.addEventListener("DOMContentLoaded",()=>{
 const canvas=document.getElementById("gameCanvas");
 const ctx=canvas.getContext("2d");
-
 let width,height,gravity=0.6;
 let coins=0,health=100,maxHealth=100;
-let currentWeapon="punch",unlocked={punch:true,bat:true,hammer:true,bomb:false,axe:false,sword:false,spear:false,grenade:false,tnt:false,thunderstruck:false};
+let currentWeapon="punch";
+let unlocked={punch:true,bat:true,hammer:true,bomb:false,axe:false,sword:false,spear:false,grenade:false,tnt:false,thunderstruck:false};
 let ragdollParts=[],constraints=[],draggingPart=null,weaponObj=null,bombs=[],particles=[],thunderStrikes=[],shake=0;
 
 const weapons={
-  punch:{damage:5,mass:1,color:"red",free:true},
-  bat:{damage:8,mass:2,color:"#8b5a2b",free:true},
-  hammer:{damage:12,mass:3,color:"#555",free:true},
-  axe:{damage:18,mass:3,color:"#964B00",free:false,price:150},
-  sword:{damage:20,mass:2.5,color:"#999",free:false,price:200},
-  spear:{damage:22,mass:2.8,color:"#666",free:false,price:250},
-  bomb:{damage:25,radius:120,mass:2,color:"black",free:false,price:100},
-  grenade:{damage:20,radius:120,mass:1.5,color:"darkgreen",free:false,price:120},
-  tnt:{damage:35,radius:180,mass:3,color:"brown",free:false,price:200},
-  thunderstruck:{damage:30,mass:3,color:"cyan",free:false,price:300}
+  punch:{damage:5,mass:1,color:"red"},
+  bat:{damage:8,mass:2,color:"#8b5a2b"},
+  hammer:{damage:12,mass:3,color:"#555"},
+  axe:{damage:18,mass:3,color:"#964B00"},
+  sword:{damage:20,mass:2.5,color:"#999"},
+  spear:{damage:22,mass:2.8,color:"#666"},
+  bomb:{damage:25,radius:120,mass:2,color:"black"},
+  grenade:{damage:20,radius:120,mass:1.5,color:"darkgreen"},
+  tnt:{damage:35,radius:180,mass:3,color:"brown"},
+  thunderstruck:{damage:30,mass:3,color:"cyan"}
 };
 
-// Start Buttons
+// Start buttons
 document.getElementById("pcBtn").addEventListener("click",()=>{document.getElementById("startScreen").style.display="none"; startGame();});
 document.getElementById("mobileBtn").addEventListener("click",()=>{document.getElementById("startScreen").style.display="none"; startGame();});
 
-// Weapon Buttons
-document.querySelectorAll("button[data-weapon]").forEach(btn=>{
+// Shop open/close
+document.getElementById("openShop").addEventListener("click",()=>{document.getElementById("shopPopup").style.display="block";});
+document.getElementById("closeShop").addEventListener("click",()=>{document.getElementById("shopPopup").style.display="none";});
+
+// Weapon buttons
+document.querySelectorAll("#shopPopup button[data-weapon]").forEach(btn=>{
   btn.onclick=()=>{
     const w=btn.dataset.weapon;
     const price=parseInt(btn.dataset.price||0);
-    if(unlocked[w]) currentWeapon=w;
-    else if(coins>=price){coins-=price; unlocked[w]=true; currentWeapon=w; updateCoins();}
+    if(unlocked[w]) selectWeapon(w);
+    else if(coins>=price){coins-=price; unlocked[w]=true; selectWeapon(w); updateCoins();}
   };
 });
 
-// Game start
+function selectWeapon(w){currentWeapon=w; document.getElementById("activeWeapon").innerText="Current Weapon: "+w.charAt(0).toUpperCase()+w.slice(1);}
+
+// Start game
 function startGame(){
   canvas.style.display="block";
-  document.getElementById("ui").style.display="block";
-  canvas.width=window.innerWidth*0.9;
-  canvas.height=window.innerHeight*0.65;
+  canvas.width=window.innerWidth*0.9; canvas.height=window.innerHeight*0.65;
   width=canvas.width; height=canvas.height;
   spawnRagdoll();
   loop();
 }
 
-// Ragdoll & Physics
+// Ragdoll physics
 class Part{constructor(x,y,r){this.x=x;this.y=y;this.oldx=x;this.oldy=y;this.r=r;}
 update(){let vx=this.x-this.oldx,vy=this.y-this.oldy;this.oldx=this.x;this.oldy=this.y;this.x+=vx;this.y+=vy+gravity;
 if(this.y+this.r>height){this.y=height-this.r; this.oldy=this.y+vy*-0.5;}
@@ -119,8 +131,8 @@ function spawnRagdoll(){
       lArm=new Part(mid-40,170,10),rArm=new Part(mid+40,170,10),
       lLeg=new Part(mid-25,270,12),rLeg=new Part(mid+25,270,12);
   ragdollParts=[head,body,lArm,rArm,lLeg,rLeg];
-  constraints=[new Constraint(head,body,45),new Constraint(body,lArm,55),
-    new Constraint(body,rArm,55),new Constraint(body,lLeg,90),new Constraint(body,rLeg,90)];
+  constraints=[new Constraint(head,body,45),new Constraint(body,lArm,55),new Constraint(body,rArm,55),
+               new Constraint(body,lLeg,90),new Constraint(body,rLeg,90)];
 }
 
 // Health & Coins
@@ -128,7 +140,7 @@ function damage(amount){health-=amount;if(health<0)health=0;updateHealth();if(he
 function updateHealth(){document.getElementById("healthFill").style.width=(health/maxHealth*100)+"%";}
 function updateCoins(){document.getElementById("coins").innerText=coins;}
 
-// Pointer Events
+// Pointer events
 canvas.addEventListener("pointerdown",e=>{
   const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
   if(["bat","hammer","thunderstruck"].includes(currentWeapon)){weaponObj={x:mx,y:my,type:currentWeapon};}
@@ -141,7 +153,7 @@ canvas.addEventListener("pointerup",()=>{draggingPart=null; weaponObj=null;});
 // Particles
 function createParticles(x,y,color,count){for(let i=0;i<count;i++){particles.push({x,y,vx:(Math.random()-0.5)*10,vy:(Math.random()-0.5)*10,color,radius:Math.random()*3+2,life:30});}}
 
-// Thunderstruck Effect
+// Thunderstruck
 function strikeThunder(x1,y1,x2,y2){thunderStrikes.push({x1,y1,x2,y2,life:5});}
 function updateThunder(){thunderStrikes.forEach(t=>t.life--);thunderStrikes=thunderStrikes.filter(t=>t.life>0);}
 function drawThunder(){thunderStrikes.forEach(t=>{ctx.strokeStyle="cyan";ctx.lineWidth=2+Math.random()*2;ctx.beginPath();ctx.moveTo(t.x1,t.y1);ctx.lineTo(t.x2,t.y2);ctx.stroke();});}
@@ -154,21 +166,19 @@ function update(){
     if(Math.sqrt(dx*dx+dy*dy)<40){p.oldx-=dx*0.8;p.oldy-=dy*0.8;damage(weapons[weaponObj.type].damage);coins+=2;updateCoins();
       if(weaponObj.type==="thunderstruck"){strikeThunder(weaponObj.x,weaponObj.y,p.x,p.y);shake=10;createParticles(p.x,p.y,"cyan",10);}}});}
 
-  // Bomb physics
-  bombs.forEach(b=>{
-    b.vy+=gravity; b.x+=b.vx; b.y+=b.vy;
+  bombs.forEach(b=>{b.vy+=gravity;b.x+=b.vx;b.y+=b.vy;
     if(b.y+12>height){b.y=height-12;b.vy*=-0.3;b.vx*=0.8;b.timer-=1;}
-    b.timer--; if(b.timer<=0){createParticles(b.x,b.y,"black",30); shake=15; coins+=5; updateCoins(); b.exploded=true;}});
+    b.timer--; if(b.timer<=0){createParticles(b.x,b.y,"black",30);shake=15;coins+=5;updateCoins(); b.exploded=true;}});
   bombs=bombs.filter(b=>!b.exploded);
 
-  particles.forEach(p=>{p.x+=p.vx; p.y+=p.vy; p.life--;}); particles=particles.filter(p=>p.life>0);
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;}); particles=particles.filter(p=>p.life>0);
 
   updateThunder();
 }
 
 // Draw
 function draw(){
-  if(shake>0){ctx.save();ctx.translate(Math.random()*shake*2-shake,Math.random()*shake*2-shake); shake--;}
+  if(shake>0){ctx.save();ctx.translate(Math.random()*shake*2-shake,Math.random()*shake*2-shake);shake--;}
   ctx.clearRect(0,0,width,height);
 
   constraints.forEach(c=>c.draw());
@@ -176,17 +186,17 @@ function draw(){
 
   if(weaponObj){ctx.fillStyle=weapons[weaponObj.type].color;
     if(["bat","thunderstruck"].includes(weaponObj.type)){ctx.fillRect(weaponObj.x-5,weaponObj.y-40,10,80);}
-    if(weaponObj.type==="hammer"){ctx.fillRect(weaponObj.x-4,weaponObj.y-40,8,60); ctx.fillStyle="#555"; ctx.fillRect(weaponObj.x-15,weaponObj.y-45,30,15);}}
+    if(weaponObj.type==="hammer"){ctx.fillRect(weaponObj.x-4,weaponObj.y-40,8,60);ctx.fillStyle="#555";ctx.fillRect(weaponObj.x-15,weaponObj.y-45,30,15);}}
 
-  bombs.forEach(b=>{ctx.fillStyle=weapons[b.type].color; ctx.beginPath(); ctx.arc(b.x,b.y,12,0,Math.PI*2); ctx.fill();});
-  particles.forEach(p=>{ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();});
+  bombs.forEach(b=>{ctx.fillStyle=weapons[b.type].color;ctx.beginPath();ctx.arc(b.x,b.y,12,0,Math.PI*2);ctx.fill();});
+  particles.forEach(p=>{ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);ctx.fill();});
   drawThunder();
 
   if(shake>0){ctx.restore();}
 }
 
 // Loop
-function loop(){update(); draw(); requestAnimationFrame(loop);}
+function loop(){update();draw();requestAnimationFrame(loop);}
 });
 </script>
 </body>
