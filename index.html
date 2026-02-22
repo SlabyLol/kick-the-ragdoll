@@ -3,46 +3,93 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kick the Ragdoll+</title>
+<title>Kick the Ragdoll</title>
+
 <style>
 body{
   margin:0;
+  background:#ececec;
   font-family:sans-serif;
-  background:#eaeaea;
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:center;
-  height:100vh;
 }
-button{padding:8px 16px;margin:4px;font-size:15px;cursor:pointer;}
-canvas{background:#fff;border:2px solid #333;display:none;}
-#ui{display:none;margin-top:8px;text-align:center;}
+
+h1{margin:10px;}
+
+canvas{
+  background:white;
+  border:3px solid #222;
+  display:none;
+  touch-action:none;
+}
+
+#ui{
+  display:none;
+  text-align:center;
+}
+
 #healthBar{
-  width:200px;height:18px;background:#444;margin:6px auto;position:relative;
+  width:220px;
+  height:18px;
+  background:#333;
+  margin:auto;
+  margin-bottom:5px;
 }
+
 #healthFill{
-  height:100%;background:lime;width:100%;
+  height:100%;
+  width:100%;
+  background:lime;
+}
+
+button{
+  padding:8px 14px;
+  margin:4px;
+  font-size:14px;
+  cursor:pointer;
+}
+
+.weaponBar{
+  margin-top:6px;
+}
+
+.free{
+  background:#77dd77;
+}
+
+.buy{
+  background:#ffb347;
 }
 </style>
 </head>
 <body>
 
+<h1>Kick the Ragdoll</h1>
+
 <div id="startScreen">
-  <h1>Kick the Ragdoll+</h1>
-  <button id="startBtn">Start</button>
+  <button id="startBtn">Start Game</button>
 </div>
 
 <canvas id="gameCanvas"></canvas>
 
 <div id="ui">
   <div>Coins: <span id="coins">0</span></div>
-  <div id="healthBar"><div id="healthFill"></div></div>
+  <div id="healthBar">
+    <div id="healthFill"></div>
+  </div>
 
-  <div id="shop">
-    <button data-weapon="bat">Bat (Free)</button>
-    <button data-weapon="hammer">Hammer (50)</button>
-    <button data-weapon="bomb">Bomb (100)</button>
+  <div class="weaponBar">
+    <!-- FREE WEAPONS -->
+    <button class="free" data-weapon="punch">Punch (Free)</button>
+    <button class="free" data-weapon="bat">Bat (Free)</button>
+    <button class="free" data-weapon="hammer">Hammer (Free)</button>
+  </div>
+
+  <div class="weaponBar">
+    <!-- BUY WEAPONS -->
+    <button class="buy" data-weapon="bomb" data-price="100">Bomb (100)</button>
+    <button class="buy" data-weapon="superbomb" data-price="250">Super Bomb (250)</button>
   </div>
 </div>
 
@@ -56,24 +103,27 @@ let coins=0;
 let health=100;
 let maxHealth=100;
 
-let currentWeapon=null;
-let unlocked={bat:true, hammer:false, bomb:false};
+let currentWeapon="punch";
+let unlocked={punch:true,bat:true,hammer:true,bomb:false,superbomb:false};
 
 let ragdollParts=[];
 let constraints=[];
-let gravity=0.5;
+let gravity=0.6;
 let floor;
+
+let draggingPart=null;
+let bombs=[];
 
 document.getElementById("startBtn").onclick=startGame;
 
-document.querySelectorAll("#shop button").forEach(btn=>{
+document.querySelectorAll("button[data-weapon]").forEach(btn=>{
   btn.onclick=()=>{
-    let weapon=btn.dataset.weapon;
-    let price=weapon==="hammer"?50:weapon==="bomb"?100:0;
+    const weapon=btn.dataset.weapon;
+    const price=parseInt(btn.dataset.price||0);
 
     if(unlocked[weapon]){
       currentWeapon=weapon;
-    }else{
+    } else {
       if(coins>=price){
         coins-=price;
         unlocked[weapon]=true;
@@ -81,7 +131,7 @@ document.querySelectorAll("#shop button").forEach(btn=>{
         updateCoins();
       }
     }
-  }
+  };
 });
 
 function startGame(){
@@ -90,11 +140,69 @@ function startGame(){
   document.getElementById("ui").style.display="block";
 
   canvas.width=window.innerWidth*0.9;
-  canvas.height=window.innerHeight*0.75;
+  canvas.height=window.innerHeight*0.65;
+
   floor=canvas.height;
 
   spawnRagdoll();
   loop();
+}
+
+class Part{
+  constructor(x,y,r){
+    this.x=x;
+    this.y=y;
+    this.oldx=x;
+    this.oldy=y;
+    this.r=r;
+  }
+  update(){
+    let vx=this.x-this.oldx;
+    let vy=this.y-this.oldy;
+
+    this.oldx=this.x;
+    this.oldy=this.y;
+
+    this.x+=vx;
+    this.y+=vy+gravity;
+
+    if(this.y+this.r>floor){
+      this.y=floor-this.r;
+      this.oldy=this.y+vy*-0.4;
+    }
+  }
+  draw(){
+    ctx.fillStyle="red";
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+class Constraint{
+  constructor(a,b,l){this.a=a;this.b=b;this.l=l;}
+  update(){
+    let dx=this.b.x-this.a.x;
+    let dy=this.b.y-this.a.y;
+    let d=Math.sqrt(dx*dx+dy*dy);
+    let diff=(this.l-d)/d/2;
+
+    let ox=dx*diff;
+    let oy=dy*diff;
+
+    this.a.x-=ox;
+    this.a.y-=oy;
+    this.b.x+=ox;
+    this.b.y+=oy;
+  }
+  draw(){
+    ctx.strokeStyle="black";
+    ctx.lineWidth=4;
+    ctx.beginPath();
+    ctx.moveTo(this.a.x,this.a.y);
+    ctx.lineTo(this.b.x,this.b.y);
+    ctx.stroke();
+  }
 }
 
 function spawnRagdoll(){
@@ -104,63 +212,14 @@ function spawnRagdoll(){
   ragdollParts=[];
   constraints=[];
 
-  class Part{
-    constructor(x,y,r){
-      this.x=x;this.y=y;this.oldx=x;this.oldy=y;this.r=r;
-    }
-    update(){
-      let vx=this.x-this.oldx;
-      let vy=this.y-this.oldy;
-
-      this.oldx=this.x;
-      this.oldy=this.y;
-
-      this.x+=vx;
-      this.y+=vy+gravity;
-
-      if(this.y+this.r>floor){
-        this.y=floor-this.r;
-        this.oldy=this.y+vy*-0.5;
-      }
-    }
-    draw(){
-      ctx.beginPath();
-      ctx.fillStyle="red";
-      ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
-      ctx.fill();
-    }
-  }
-
-  class Constraint{
-    constructor(a,b,l){this.a=a;this.b=b;this.l=l;}
-    update(){
-      let dx=this.b.x-this.a.x;
-      let dy=this.b.y-this.a.y;
-      let d=Math.sqrt(dx*dx+dy*dy);
-      let diff=(this.l-d)/d/2;
-      let ox=dx*diff;
-      let oy=dy*diff;
-      this.a.x-=ox;this.a.y-=oy;
-      this.b.x+=ox;this.b.y+=oy;
-    }
-    draw(){
-      ctx.strokeStyle="black";
-      ctx.lineWidth=4;
-      ctx.beginPath();
-      ctx.moveTo(this.a.x,this.a.y);
-      ctx.lineTo(this.b.x,this.b.y);
-      ctx.stroke();
-    }
-  }
-
   let mid=canvas.width/2;
 
   let head=new Part(mid,120,18);
   let body=new Part(mid,170,25);
   let lArm=new Part(mid-40,170,10);
   let rArm=new Part(mid+40,170,10);
-  let lLeg=new Part(mid-20,260,12);
-  let rLeg=new Part(mid+20,260,12);
+  let lLeg=new Part(mid-25,270,12);
+  let rLeg=new Part(mid+25,270,12);
 
   ragdollParts=[head,body,lArm,rArm,lLeg,rLeg];
 
@@ -168,8 +227,8 @@ function spawnRagdoll(){
     new Constraint(head,body,45),
     new Constraint(body,lArm,55),
     new Constraint(body,rArm,55),
-    new Constraint(body,lLeg,85),
-    new Constraint(body,rLeg,85)
+    new Constraint(body,lLeg,90),
+    new Constraint(body,rLeg,90)
   ];
 }
 
@@ -177,6 +236,7 @@ function damage(amount){
   health-=amount;
   if(health<0)health=0;
   updateHealth();
+
   if(health===0){
     setTimeout(spawnRagdoll,1000);
   }
@@ -185,6 +245,7 @@ function damage(amount){
 function updateHealth(){
   document.getElementById("healthFill").style.width=
     (health/maxHealth*100)+"%";
+
   document.getElementById("healthFill").style.background=
     health>50?"lime":health>20?"orange":"red";
 }
@@ -193,41 +254,94 @@ function updateCoins(){
   document.getElementById("coins").innerText=coins;
 }
 
-canvas.onmousedown=e=>{
+canvas.addEventListener("pointerdown",e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left;
+  const my=e.clientY-rect.top;
+
   ragdollParts.forEach(p=>{
-    let dx=p.x-e.offsetX;
-    let dy=p.y-e.offsetY;
+    const dx=p.x-mx;
+    const dy=p.y-my;
     if(Math.sqrt(dx*dx+dy*dy)<30){
-      if(currentWeapon==="bat"){p.oldx-=dx*0.5;damage(5);coins+=1;}
-      if(currentWeapon==="hammer"){p.oldx-=dx*0.8;damage(12);coins+=2;}
-      if(currentWeapon==="bomb"){
-        ragdollParts.forEach(pp=>{
-          pp.oldx-=dx*1.2;
-        });
-        damage(25);
-        coins+=5;
+      draggingPart=p;
+
+      if(currentWeapon==="punch"){
+        p.oldx-=dx*0.3;
+        damage(4);
+        coins+=1;
       }
+
+      if(currentWeapon==="bat"){
+        p.oldx-=dx*0.6;
+        damage(8);
+        coins+=2;
+      }
+
+      if(currentWeapon==="hammer"){
+        p.oldx-=dx*1;
+        damage(12);
+        coins+=3;
+      }
+
+      if(currentWeapon==="bomb"||currentWeapon==="superbomb"){
+        bombs.push({x:mx,y:my,timer:60,
+          power:currentWeapon==="bomb"?80:150});
+      }
+
       updateCoins();
     }
   });
-};
+});
+
+canvas.addEventListener("pointermove",e=>{
+  if(draggingPart){
+    const rect=canvas.getBoundingClientRect();
+    draggingPart.x=e.clientX-rect.left;
+    draggingPart.y=e.clientY-rect.top;
+  }
+});
+
+canvas.addEventListener("pointerup",()=>{
+  draggingPart=null;
+});
 
 function update(){
   constraints.forEach(c=>c.update());
   ragdollParts.forEach(p=>p.update());
 
-  // Respawn if out of screen
-  ragdollParts.forEach(p=>{
-    if(p.y>canvas.height+200){
-      spawnRagdoll();
+  bombs.forEach(b=>{
+    b.timer--;
+    if(b.timer<=0){
+      ragdollParts.forEach(p=>{
+        let dx=p.x-b.x;
+        let dy=p.y-b.y;
+        let dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<150){
+          p.oldx-=dx*0.7;
+          damage(20);
+        }
+      });
+      coins+=5;
+      updateCoins();
+      b.exploded=true;
     }
   });
+
+  bombs=bombs.filter(b=>!b.exploded);
 }
 
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
   constraints.forEach(c=>c.draw());
   ragdollParts.forEach(p=>p.draw());
+
+  bombs.forEach(b=>{
+    ctx.fillStyle="black";
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,12,0,Math.PI*2);
+    ctx.fill();
+  });
 }
 
 function loop(){
