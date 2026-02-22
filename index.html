@@ -57,49 +57,48 @@ let coins=0,health=100,maxHealth=100;
 let currentWeapon="punch";
 let unlocked={punch:true,bat:true,hammer:true,bomb:false,axe:false,sword:false,spear:false,grenade:false,tnt:false,thunderstruck:false};
 let ragdollParts=[],constraints=[],draggingPart=null,weaponObj=null,weaponsOnField=[],shake=0;
-let dead=false;
-let blueBuddyClicks=0,shopLocked=false;
+let dead=false,blueBuddyClicks=0,shopLocked=false;
 
-// Weapon stats
+// Weapons stats
 const weapons={
-  punch:{damage:5,mass:1,color:"red"},
-  bat:{damage:8,mass:2,color:"#8b5a2b"},
-  hammer:{damage:12,mass:3,color:"#555"},
-  axe:{damage:18,mass:3,color:"#964B00"},
-  sword:{damage:20,mass:2.5,color:"#999"},
-  spear:{damage:22,mass:2.8,color:"#666"},
-  bomb:{damage:25,radius:40,mass:2,color:"black"},
-  grenade:{damage:25,radius:35,mass:1.5,color:"green"},
-  tnt:{damage:40,radius:50,mass:3,color:"brown"},
-  thunderstruck:{damage:30,mass:3,color:"cyan"}
+punch:{damage:5,mass:1,color:"red"},
+bat:{damage:8,mass:2,color:"#8b5a2b"},
+hammer:{damage:12,mass:3,color:"#555"},
+axe:{damage:18,mass:3,color:"#964B00"},
+sword:{damage:20,mass:2.5,color:"#999"},
+spear:{damage:22,mass:2.8,color:"#666"},
+bomb:{damage:25,radius:40,mass:2,color:"black"},
+grenade:{damage:25,radius:35,mass:1.5,color:"green"},
+tnt:{damage:40,radius:50,mass:3,color:"brown"},
+thunderstruck:{damage:30,mass:3,color:"cyan"}
 };
 
-// --- UI ---
+// UI functions
 function startGame(){
-  document.getElementById("startScreen").style.display="none";
-  document.getElementById("ui").style.display="block";
-  canvas.style.display="block";
-  canvas.width=window.innerWidth*0.9; canvas.height=window.innerHeight*0.7;
-  width=canvas.width; height=canvas.height;
-  spawnRagdoll();
-  loop();
+document.getElementById("startScreen").style.display="none";
+document.getElementById("ui").style.display="block";
+canvas.style.display="block";
+canvas.width=window.innerWidth*0.9; canvas.height=window.innerHeight*0.7;
+width=canvas.width; height=canvas.height;
+spawnRagdoll();
+loop();
 }
 document.getElementById("pcBtn").addEventListener("click",startGame);
 document.getElementById("mobileBtn").addEventListener("click",startGame);
 document.getElementById("openShop").addEventListener("click",()=>{if(!shopLocked) document.getElementById("shopPopup").style.display="block";});
 document.getElementById("closeShop").addEventListener("click",()=>{document.getElementById("shopPopup").style.display="none";});
 document.querySelectorAll("#shopPopup button[data-weapon]").forEach(btn=>{
-  btn.onclick=()=>{
-    const w=btn.dataset.weapon; const price=parseInt(btn.dataset.price||0);
-    if(unlocked[w]) selectWeapon(w);
-    else if(coins>=price){coins-=price; unlocked[w]=true; selectWeapon(w); updateCoins();}
-  };
+btn.onclick=()=>{
+const w=btn.dataset.weapon; const price=parseInt(btn.dataset.price||0);
+if(unlocked[w]) selectWeapon(w);
+else if(coins>=price){coins-=price; unlocked[w]=true; selectWeapon(w); updateCoins();}
+};
 });
 function selectWeapon(w){currentWeapon=w; document.getElementById("activeWeapon").innerText="Current Weapon: "+w.charAt(0).toUpperCase()+w.slice(1);}
 function updateCoins(){document.getElementById("coins").innerText=coins;}
 function updateHealth(){document.getElementById("healthFill").style.width=(health/maxHealth*100)+"%";}
 
-// Blue Buddy Dialog
+// Blue Buddy dialog
 document.getElementById("blueBuddy").addEventListener("click",()=>{
 if(shopLocked) return;
 blueBuddyClicks++;
@@ -108,28 +107,26 @@ if(blueBuddyClicks===1)d.innerText="Hey what are you doing!";
 else if(blueBuddyClicks===2)d.innerText="Okay! Stop it!";
 else if(blueBuddyClicks===3)d.innerText="2 Times more and I'm gonna pay it back!";
 else if(blueBuddyClicks===4)d.innerText="WHY...";
-else if(blueBuddyClicks>=5){d.innerText="F#CK YOU N#GGA"; shopLocked=true;
+else if(blueBuddyClicks>=5){d.innerText="Ok you made a wrong choice"; shopLocked=true;
 setTimeout(()=>{document.getElementById("shopPopup").style.display="none";},3000);}
 });
 
-// --- Ragdoll ---
+// Ragdoll classes
 class Part{
-  constructor(x,y,r){this.x=x;this.y=y;this.oldx=x;this.oldy=y;this.r=r;}
-  update(){let vx=this.x-this.oldx,vy=this.y-this.oldy;this.oldx=this.x;this.oldy=this.y;this.x+=vx;this.y+=vy+gravity;
-    // collision floor/ceiling/walls
-    if(this.y+this.r>height){this.y=height-this.r; this.oldy=this.y+vy*-0.5;}
-    if(this.y-this.r<0){this.y=this.r; this.oldy=this.y+vy*-0.5;}
-    if(this.x-this.r<0){this.x=this.r; this.oldx=this.x+vx*-0.5;}
-    if(this.x+this.r>width){this.x=width-this.r; this.oldx=this.x+vx*-0.5;}
-  }
-  draw(){ctx.fillStyle="red"; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fill();}
+constructor(x,y,r){this.x=x;this.y=y;this.oldx=x;this.oldy=y;this.r=r;}
+update(){let vx=this.x-this.oldx,vy=this.y-this.oldy;this.oldx=this.x;this.oldy=this.y;this.x+=vx;this.y+=vy+gravity;
+if(this.y+this.r>height){this.y=height-this.r; this.oldy=this.y+vy*-0.5;}
+if(this.y-this.r<0){this.y=this.r; this.oldy=this.y+vy*-0.5;}
+if(this.x-this.r<0){this.x=this.r; this.oldx=this.x+vx*-0.5;}
+if(this.x+this.r>width){this.x=width-this.r; this.oldx=this.x+vx*-0.5;}
 }
-
+draw(){ctx.fillStyle="red"; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fill();}
+}
 class Constraint{
-  constructor(a,b,l){this.a=a;this.b=b;this.l=l;}
-  update(){let dx=this.b.x-this.a.x,dy=this.b.y-this.a.y,d=Math.sqrt(dx*dx+dy*dy);
-    let diff=(this.l-d)/d/2,ox=dx*diff,oy=dy*diff;this.a.x-=ox;this.a.y-=oy;this.b.x+=ox;this.b.y+=oy;}
-  draw(){ctx.strokeStyle="black";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(this.a.x,this.a.y);ctx.lineTo(this.b.x,this.b.y);ctx.stroke();}
+constructor(a,b,l){this.a=a;this.b=b;this.l=l;}
+update(){let dx=this.b.x-this.a.x,dy=this.b.y-this.a.y,d=Math.sqrt(dx*dx+dy*dy);
+let diff=(this.l-d)/d/2,ox=dx*diff,oy=dy*diff;this.a.x-=ox;this.a.y-=oy;this.b.x+=ox;this.b.y+=oy;}
+draw(){ctx.strokeStyle="black";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(this.a.x,this.a.y);ctx.lineTo(this.b.x,this.b.y);ctx.stroke();}
 }
 
 function spawnRagdoll(){
@@ -137,22 +134,21 @@ health=maxHealth; updateHealth(); dead=false;
 ragdollParts=[]; constraints=[];
 let mid=width/2;
 let head=new Part(mid,120,18),body=new Part(mid,170,25),
-    lArm=new Part(mid-40,170,10),rArm=new Part(mid+40,170,10),
-    lLeg=new Part(mid-25,270,12),rLeg=new Part(mid+25,270,12);
+lArm=new Part(mid-40,170,10),rArm=new Part(mid+40,170,10),
+lLeg=new Part(mid-25,270,12),rLeg=new Part(mid+25,270,12);
 ragdollParts=[head,body,lArm,rArm,lLeg,rLeg];
 constraints=[new Constraint(head,body,45),new Constraint(body,lArm,55),new Constraint(body,rArm,55),
-             new Constraint(body,lLeg,90),new Constraint(body,rLeg,90)];
+new Constraint(body,lLeg,90),new Constraint(body,rLeg,90)];
 }
 
-// Weapon object class for physics
+// Weapon physics
 class Weapon{
 constructor(x,y,type){this.x=x;this.y=y;this.vx=0;this.vy=0;this.type=type; this.radius=weapons[type].radius||10;}
 update(){this.vy+=gravity; this.x+=this.vx; this.y+=this.vy;
-  // collision floor
-  if(this.y+this.radius>height){this.y=height-this.radius; this.vy*=-0.5;}
-  if(this.y-this.radius<0){this.y=this.radius; this.vy*=-0.5;}
-  if(this.x-this.radius<0){this.x=this.radius; this.vx*=-0.5;}
-  if(this.x+this.radius>width){this.x=width-this.radius; this.vx*=-0.5;}
+if(this.y+this.radius>height){this.y=height-this.radius; this.vy*=-0.5;}
+if(this.y-this.radius<0){this.y=this.radius; this.vy*=-0.5;}
+if(this.x-this.radius<0){this.x=this.radius; this.vx*=-0.5;}
+if(this.x+this.radius>width){this.x=width-this.radius; this.vx*=-0.5;}
 }
 draw(){ctx.fillStyle=weapons[this.type].color; ctx.beginPath();
 if(this.type==="bomb"||this.type==="grenade"||this.type==="tnt"){ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);}
@@ -161,7 +157,7 @@ else{ctx.fillRect(this.x-5,this.y-20,10,40);}
 ctx.fill();}
 }
 
-// Drag & drop
+// Drag & Drop
 canvas.addEventListener("pointerdown",e=>{
 const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
 ragdollParts.forEach(p=>{let dx=p.x-mx,dy=p.y-my;if(Math.sqrt(dx*dx+dy*dy)<30) draggingPart=p;});
@@ -180,11 +176,7 @@ function draw(){ctx.clearRect(0,0,width,height);
 constraints.forEach(c=>c.draw()); ragdollParts.forEach(p=>p.draw()); weaponsOnField.forEach(w=>w.draw());
 if(weaponObj)weaponObj.draw();}
 function loop(){update(); draw(); requestAnimationFrame(loop);}
-
-document.getElementById("pcBtn").addEventListener("click",startGame);
-document.getElementById("mobileBtn").addEventListener("click",startGame);
 loop();
-});
 </script>
 </body>
 </html>
