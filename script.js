@@ -9,7 +9,7 @@ const friction = 0.9;
 
 let mouse = { x: 0, y: 0, down: false };
 
-// Ragdoll-Teil
+// Körperteil
 class Part {
   constructor(x, y, radius) {
     this.x = x;
@@ -19,6 +19,7 @@ class Part {
     this.radius = radius;
     this.fixed = false;
   }
+
   update() {
     if(this.fixed) return;
     let vx = (this.x - this.oldx) * friction;
@@ -27,7 +28,7 @@ class Part {
     this.oldy = this.y;
     this.x += vx;
     this.y += vy + gravity;
-    
+
     // Boden
     if(this.y + this.radius > canvas.height) {
       this.y = canvas.height - this.radius;
@@ -37,6 +38,7 @@ class Part {
     if(this.x - this.radius < 0) { this.x = this.radius; this.oldx = this.x + vx * -0.5; }
     if(this.x + this.radius > canvas.width) { this.x = canvas.width - this.radius; this.oldx = this.x + vx * -0.5; }
   }
+
   draw() {
     ctx.beginPath();
     ctx.fillStyle = 'red';
@@ -45,13 +47,14 @@ class Part {
   }
 }
 
-// Gelenk
+// Constraint / Gelenk
 class Constraint {
   constructor(a, b, length) {
     this.a = a;
     this.b = b;
     this.length = length;
   }
+
   update() {
     let dx = this.b.x - this.a.x;
     let dy = this.b.y - this.a.y;
@@ -61,7 +64,15 @@ class Constraint {
     let offsetY = dy * diff;
     if(!this.a.fixed) { this.a.x -= offsetX; this.a.y -= offsetY; }
     if(!this.b.fixed) { this.b.x += offsetX; this.b.y += offsetY; }
+
+    // sanfte Korrektur, damit Beine nicht durch Boden glitchen
+    [this.a, this.b].forEach(p=>{
+      if(p.y + p.radius > canvas.height) {
+        p.y = canvas.height - p.radius;
+      }
+    });
   }
+
   draw() {
     ctx.beginPath();
     ctx.strokeStyle = 'black';
@@ -72,7 +83,7 @@ class Constraint {
   }
 }
 
-// Ragdoll
+// Ragdoll erstellen
 let head = new Part(canvas.width/2, 100, 20);
 let body = new Part(canvas.width/2, 160, 25);
 let leftArm = new Part(canvas.width/2-40, 160, 10);
@@ -89,40 +100,48 @@ let constraints = [
   new Constraint(body, rightLeg, 80)
 ];
 
-// Automatisches Aufstehen / Gehen
+// automatisches Aufstehen & Gehen
 let walkTime = 0;
 
 function autoWalk() {
-  walkTime += 0.1;
-  let step = Math.sin(walkTime) * 10;
-  // Beine bewegen
-  leftLeg.y = body.y + 80 + step;
-  rightLeg.y = body.y + 80 - step;
-  // Körper aufrichten
-  body.y -= 0.15;
-  head.y -= 0.15;
-  // Vorwärtsbewegung
-  let forward = 1.2;
-  for(let p of parts) { p.x += forward; }
+  walkTime += 0.05; // langsamer
+  let step = Math.sin(walkTime) * 5;
+
+  // Beine bewegen und auf Boden fixieren
+  leftLeg.y = Math.min(body.y + 80 + step, canvas.height - leftLeg.radius);
+  rightLeg.y = Math.min(body.y + 80 - step, canvas.height - rightLeg.radius);
+
+  // Körper aufrichten langsam
+  if(body.y > 140) body.y -= 0.2;
+  if(head.y > 100) head.y -= 0.2;
+
+  // Vorwärtsbewegung langsamer
+  let forward = 0.8;
+  parts.forEach(p => p.x += forward);
 }
 
 function update() {
-  for(let i=0; i<5; i++) constraints.forEach(c=>c.update());
-  parts.forEach(p=>p.update());
+  for(let i=0; i<5; i++) constraints.forEach(c => c.update());
+  parts.forEach(p => p.update());
   autoWalk();
 }
 
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  constraints.forEach(c=>c.draw());
-  parts.forEach(p=>p.draw());
+  constraints.forEach(c => c.draw());
+  parts.forEach(p => p.draw());
 }
 
-function loop() { update(); draw(); requestAnimationFrame(loop); }
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
 loop();
 
-// Anpassung bei Fenstergröße
-window.addEventListener('resize', ()=>{
+// responsive für PC & Mobile
+window.addEventListener('resize', () => {
   canvas.width = window.innerWidth * 0.9;
   canvas.height = window.innerHeight * 0.7;
 });
