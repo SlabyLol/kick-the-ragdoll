@@ -154,10 +154,20 @@ function strikeThunder(x1,y1,x2,y2){thunderStrikes.push({x1,y1,x2,y2,life:5});}
 function updateThunder(){thunderStrikes.forEach(t=>t.life--);thunderStrikes=thunderStrikes.filter(t=>t.life>0);}
 function drawThunder(){thunderStrikes.forEach(t=>{ctx.strokeStyle="cyan";ctx.lineWidth=2+Math.random()*2;ctx.beginPath();ctx.moveTo(t.x1,t.y1);ctx.lineTo(t.x2,t.y2);ctx.stroke();});}
 
-// Explode Buddy
+// Explode Buddy + Respawn
 function explodeBuddy(){
   constraints=[]; // remove constraints
-  ragdollParts.forEach(p=>{p.oldx-=Math.random()*15-7; p.oldy-=Math.random()*15-7; createBlood(p.x,p.y,10); coins+=5; updateCoins();});
+  ragdollParts.forEach(p=>{
+    p.oldx-=Math.random()*15-7;
+    p.oldy-=Math.random()*15-7;
+    createBlood(p.x,p.y,10);
+    coins+=5;
+    updateCoins();
+  });
+  // Respawn after 3 seconds
+  setTimeout(()=>{
+    spawnRagdoll();
+  },3000);
 }
 
 // Update
@@ -224,7 +234,6 @@ function draw(){
 
 // Loop
 function loop(){update(); draw(); requestAnimationFrame(loop);}
-});
 </script>
 </body>
 </html>
