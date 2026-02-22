@@ -7,12 +7,12 @@ body {
   background: #f0f0f0;
 }
 
-h1 {
-  margin: 10px;
+h1, p {
+  margin: 5px;
 }
 
 canvas {
   border: 2px solid #333;
   background: #fff;
-  touch-action: none; /* für Mobile Drag */
+  touch-action: none;
 }
