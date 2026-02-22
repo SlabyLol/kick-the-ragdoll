@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kick the Ragdoll</title>
 <style>
-body { margin:0; background:#222; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; color:white; }
-canvas{background:#333; display:none; border:3px solid #000;}
-button{padding:8px 14px;margin:4px;}
+body{margin:0;background:#222;color:white;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;}
+canvas{background:#333;display:none;border:3px solid #000;}
+button{padding:8px 14px;margin:4px;cursor:pointer;}
 #ui,#startScreen,#shopPopup{text-align:center;}
 #healthBar{width:220px;height:18px;background:#333;margin:auto;margin-bottom:5px;}
 #healthFill{height:100%;width:100%;background:lime;}
@@ -59,7 +59,7 @@ let unlocked={punch:true,bat:true,hammer:true,bomb:false,axe:false,sword:false,s
 let ragdollParts=[],constraints=[],draggingPart=null,weaponObj=null,weaponsOnField=[],shake=0;
 let dead=false,blueBuddyClicks=0,shopLocked=false;
 
-// Weapons stats
+// Weapon stats
 const weapons={
 punch:{damage:5,mass:1,color:"red"},
 bat:{damage:8,mass:2,color:"#8b5a2b"},
@@ -85,20 +85,22 @@ loop();
 }
 document.getElementById("pcBtn").addEventListener("click",startGame);
 document.getElementById("mobileBtn").addEventListener("click",startGame);
+
+// Coins and shop
+function updateCoins(){document.getElementById("coins").innerText=coins;}
+function selectWeapon(w){if(unlocked[w]) currentWeapon=w; document.getElementById("activeWeapon").innerText="Current Weapon: "+w.charAt(0).toUpperCase()+w.slice(1);}
+
 document.getElementById("openShop").addEventListener("click",()=>{if(!shopLocked) document.getElementById("shopPopup").style.display="block";});
 document.getElementById("closeShop").addEventListener("click",()=>{document.getElementById("shopPopup").style.display="none";});
 document.querySelectorAll("#shopPopup button[data-weapon]").forEach(btn=>{
-btn.onclick=()=>{
+btn.addEventListener("click",()=>{
 const w=btn.dataset.weapon; const price=parseInt(btn.dataset.price||0);
 if(unlocked[w]) selectWeapon(w);
 else if(coins>=price){coins-=price; unlocked[w]=true; selectWeapon(w); updateCoins();}
-};
 });
-function selectWeapon(w){currentWeapon=w; document.getElementById("activeWeapon").innerText="Current Weapon: "+w.charAt(0).toUpperCase()+w.slice(1);}
-function updateCoins(){document.getElementById("coins").innerText=coins;}
-function updateHealth(){document.getElementById("healthFill").style.width=(health/maxHealth*100)+"%";}
+});
 
-// Blue Buddy dialog
+// Blue Buddy Dialog
 document.getElementById("blueBuddy").addEventListener("click",()=>{
 if(shopLocked) return;
 blueBuddyClicks++;
@@ -111,7 +113,7 @@ else if(blueBuddyClicks>=5){d.innerText="Ok you made a wrong choice"; shopLocked
 setTimeout(()=>{document.getElementById("shopPopup").style.display="none";},3000);}
 });
 
-// Ragdoll classes
+// Ragdoll
 class Part{
 constructor(x,y,r){this.x=x;this.y=y;this.oldx=x;this.oldy=y;this.r=r;}
 update(){let vx=this.x-this.oldx,vy=this.y-this.oldy;this.oldx=this.x;this.oldy=this.y;this.x+=vx;this.y+=vy+gravity;
@@ -130,7 +132,7 @@ draw(){ctx.strokeStyle="black";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(this.a
 }
 
 function spawnRagdoll(){
-health=maxHealth; updateHealth(); dead=false;
+health=100; updateHealth(); dead=false;
 ragdollParts=[]; constraints=[];
 let mid=width/2;
 let head=new Part(mid,120,18),body=new Part(mid,170,25),
@@ -177,6 +179,7 @@ constraints.forEach(c=>c.draw()); ragdollParts.forEach(p=>p.draw()); weaponsOnFi
 if(weaponObj)weaponObj.draw();}
 function loop(){update(); draw(); requestAnimationFrame(loop);}
 loop();
+});
 </script>
 </body>
 </html>
