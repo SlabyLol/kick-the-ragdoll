@@ -14,21 +14,28 @@ body{
   flex-direction:column;
   align-items:center;
 }
+
 h1{margin:10px;}
+
 canvas{
   background:white;
-  border:3px solid #222;
+  border:4px solid #222;
   display:none;
+  touch-action:none;
 }
+
 #ui{display:none;text-align:center;}
+
 button{
   padding:8px 14px;
   margin:4px;
   font-size:14px;
   cursor:pointer;
 }
+
 .free{background:#77dd77;}
 .buy{background:#ffb347;}
+
 #healthBar{
   width:220px;
   height:18px;
@@ -62,6 +69,7 @@ button{
     <button class="free" data-weapon="bat">Bat (Free)</button>
     <button class="free" data-weapon="hammer">Hammer (Free)</button>
   </div>
+
   <div>
     <button class="buy" data-weapon="bomb" data-price="100">Bomb (100)</button>
   </div>
@@ -83,19 +91,21 @@ let unlocked={punch:true,bat:true,hammer:true,bomb:false};
 let ragdollParts=[];
 let constraints=[];
 let gravity=0.6;
-let floor;
 
 let draggingPart=null;
 let weaponObj=null;
 let bombs=[];
 
-document.getElementById("pcBtn").onclick=()=>startGame();
-document.getElementById("mobileBtn").onclick=()=>startGame();
+let width, height;
+
+document.getElementById("pcBtn").onclick=startGame;
+document.getElementById("mobileBtn").onclick=startGame;
 
 document.querySelectorAll("button[data-weapon]").forEach(btn=>{
   btn.onclick=()=>{
     const weapon=btn.dataset.weapon;
     const price=parseInt(btn.dataset.price||0);
+
     if(unlocked[weapon]){
       currentWeapon=weapon;
     } else if(coins>=price){
@@ -114,7 +124,9 @@ function startGame(){
 
   canvas.width=window.innerWidth*0.9;
   canvas.height=window.innerHeight*0.65;
-  floor=canvas.height;
+
+  width=canvas.width;
+  height=canvas.height;
 
   spawnRagdoll();
   loop();
@@ -122,21 +134,50 @@ function startGame(){
 
 class Part{
   constructor(x,y,r){
-    this.x=x;this.y=y;this.oldx=x;this.oldy=y;this.r=r;
+    this.x=x;
+    this.y=y;
+    this.oldx=x;
+    this.oldy=y;
+    this.r=r;
   }
+
   update(){
     let vx=this.x-this.oldx;
     let vy=this.y-this.oldy;
+
     this.oldx=this.x;
     this.oldy=this.y;
+
     this.x+=vx;
     this.y+=vy+gravity;
 
-    if(this.y+this.r>floor){
-      this.y=floor-this.r;
-      this.oldy=this.y+vy*-0.4;
+    // ==== BOX COLLISION ====
+
+    // FLOOR
+    if(this.y+this.r > height){
+      this.y=height-this.r;
+      this.oldy=this.y+vy*-0.5;
+    }
+
+    // CEILING
+    if(this.y-this.r < 0){
+      this.y=this.r;
+      this.oldy=this.y+vy*-0.5;
+    }
+
+    // LEFT WALL
+    if(this.x-this.r < 0){
+      this.x=this.r;
+      this.oldx=this.x+vx*-0.5;
+    }
+
+    // RIGHT WALL
+    if(this.x+this.r > width){
+      this.x=width-this.r;
+      this.oldx=this.x+vx*-0.5;
     }
   }
+
   draw(){
     ctx.fillStyle="red";
     ctx.beginPath();
@@ -146,17 +187,27 @@ class Part{
 }
 
 class Constraint{
-  constructor(a,b,l){this.a=a;this.b=b;this.l=l;}
+  constructor(a,b,l){
+    this.a=a;
+    this.b=b;
+    this.l=l;
+  }
+
   update(){
     let dx=this.b.x-this.a.x;
     let dy=this.b.y-this.a.y;
     let d=Math.sqrt(dx*dx+dy*dy);
     let diff=(this.l-d)/d/2;
+
     let ox=dx*diff;
     let oy=dy*diff;
-    this.a.x-=ox;this.a.y-=oy;
-    this.b.x+=ox;this.b.y+=oy;
+
+    this.a.x-=ox;
+    this.a.y-=oy;
+    this.b.x+=ox;
+    this.b.y+=oy;
   }
+
   draw(){
     ctx.strokeStyle="black";
     ctx.lineWidth=4;
@@ -173,7 +224,7 @@ function spawnRagdoll(){
   ragdollParts=[];
   constraints=[];
 
-  let mid=canvas.width/2;
+  let mid=width/2;
 
   let head=new Part(mid,120,18);
   let body=new Part(mid,170,25);
@@ -204,15 +255,14 @@ function damage(amount){
 
 function updateHealth(){
   document.getElementById("healthFill").style.width=
-    (health/maxHealth*100)+"%";
-  document.getElementById("healthFill").style.background=
-    health>50?"lime":health>20?"orange":"red";
+  (health/maxHealth*100)+"%";
 }
 
 function updateCoins(){
   document.getElementById("coins").innerText=coins;
 }
 
+// pointer controls PC + mobile
 canvas.addEventListener("pointerdown",e=>{
   const rect=canvas.getBoundingClientRect();
   const mx=e.clientX-rect.left;
@@ -270,11 +320,10 @@ function update(){
     ragdollParts.forEach(p=>{
       let dx=p.x-weaponObj.x;
       let dy=p.y-weaponObj.y;
-      let dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist<40){
+      if(Math.sqrt(dx*dx+dy*dy)<40){
         p.oldx-=dx*0.8;
         damage(weaponObj.type==="hammer"?12:8);
-        coins+=weaponObj.type==="hammer"?3:2;
+        coins+=2;
         updateCoins();
       }
     });
@@ -301,7 +350,7 @@ function update(){
 }
 
 function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.clearRect(0,0,width,height);
 
   constraints.forEach(c=>c.draw());
   ragdollParts.forEach(p=>p.draw());
@@ -335,5 +384,6 @@ function loop(){
 
 });
 </script>
+
 </body>
 </html>
