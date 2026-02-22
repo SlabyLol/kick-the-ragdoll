@@ -3,8 +3,9 @@ const ctx = canvas.getContext('2d');
 let useMobileDrag = false;
 let currentWeapon = null;
 let weaponSprite = { x: 0, y: 0, visible: false };
+let coins = 0;
 
-// Start screen
+// UI
 document.getElementById('pcBtn').addEventListener('click', () => startGame(false));
 document.getElementById('mobileBtn').addEventListener('click', () => startGame(true));
 document.querySelectorAll('#weaponPanel button').forEach(btn=>{
@@ -15,12 +16,14 @@ function startGame(isMobile){
   useMobileDrag = isMobile;
   document.getElementById('startScreen').style.display='none';
   document.getElementById('weaponPanel').style.display='block';
+  document.getElementById('coinDisplay').style.display='block';
   canvas.style.display='block';
   canvas.width = window.innerWidth *0.9;
   canvas.height = window.innerHeight*0.7;
   initGame();
 }
 
+// --- Game Setup ---
 function initGame(){
   const gravity = 0.5;
   const friction = 0.9;
@@ -28,8 +31,11 @@ function initGame(){
 
   let mouse = {x:0,y:0,down:false};
   let draggedPart = null;
+  let draggedWeapon = false;
+  let fallen = false;
+  let fallTimer = 0;
 
-  // --- Ragdoll Part ---
+  // --- Part ---
   class Part{
     constructor(x,y,radius){
       this.x=x; this.y=y;
@@ -41,8 +47,7 @@ function initGame(){
       let vx=(this.x-this.oldx)*friction;
       let vy=(this.y-this.oldy)*friction;
       this.oldx=this.x; this.oldy=this.y;
-      this.x+=vx;
-      this.y+=vy+gravity;
+      this.x+=vx; this.y+=vy+gravity;
       if(this.y+this.radius>floorY){ this.y=floorY-this.radius; this.oldy=this.y+vy*-0.5; }
       if(this.x-this.radius<0){ this.x=this.radius; this.oldx=this.x+vx*-0.5; }
       if(this.x+this.radius>canvas.width){ this.x=canvas.width-this.radius; this.oldx=this.x+vx*-0.5; }
@@ -82,7 +87,7 @@ function initGame(){
     }
   }
 
-  // --- Create Ragdoll ---
+  // --- Create ragdoll ---
   let head = new Part(canvas.width/2,100,20);
   let body = new Part(canvas.width/2,160,25);
   let leftArm = new Part(canvas.width/2-40,160,10);
@@ -99,48 +104,71 @@ function initGame(){
     new Constraint(body,rightLeg,80)
   ];
 
-  // --- Drag setup ---
+  // --- Drag functions ---
+  function startDragPart(x,y){
+    for(let p of parts){
+      let dx=p.x-x; let dy=p.y-y;
+      if(Math.sqrt(dx*dx+dy*dy)<p.radius){ draggedPart=p; p.fixed=true; return true; }
+    }
+    return false;
+  }
+
+  function startDragWeapon(x,y){
+    if(currentWeapon){
+      weaponSprite.x=x; weaponSprite.y=y; weaponSprite.visible=true;
+      draggedWeapon=true;
+      return true;
+    }
+    return false;
+  }
+
+  // --- Input ---
   if(!useMobileDrag){
     canvas.addEventListener('mousedown', e=>{
       mouse.down=true; mouse.x=e.offsetX; mouse.y=e.offsetY;
-      for(let p of parts){
-        let dx=p.x-mouse.x; let dy=p.y-mouse.y;
-        if(Math.sqrt(dx*dx+dy*dy)<p.radius){ draggedPart=p; p.fixed=true; break; }
-      }
+      if(!startDragPart(mouse.x,mouse.y)) startDragWeapon(mouse.x,mouse.y);
     });
     canvas.addEventListener('mousemove', e=>{
       mouse.x=e.offsetX; mouse.y=e.offsetY;
-      if(currentWeapon){ weaponSprite.x=mouse.x; weaponSprite.y=mouse.y; weaponSprite.visible=true; }
       if(draggedPart){ draggedPart.x=mouse.x; draggedPart.y=mouse.y; }
+      if(draggedWeapon){ weaponSprite.x=mouse.x; weaponSprite.y=mouse.y; }
     });
-    canvas.addEventListener('mouseup', ()=>{ if(draggedPart){ draggedPart.fixed=false; draggedPart=null; } weaponSprite.visible=false; });
+    canvas.addEventListener('mouseup', ()=>{
+      if(draggedPart){ draggedPart.fixed=false; draggedPart=null; }
+      draggedWeapon=false; weaponSprite.visible=false;
+    });
   } else {
     canvas.addEventListener('touchstart', e=>{
       let touch=e.touches[0];
-      mouse.down=true;
       mouse.x=touch.clientX-canvas.getBoundingClientRect().left;
       mouse.y=touch.clientY-canvas.getBoundingClientRect().top;
-      weaponSprite.x=mouse.x; weaponSprite.y=mouse.y; weaponSprite.visible=true;
-      for(let p of parts){
-        let dx=p.x-mouse.x; let dy=p.y-mouse.y;
-        if(Math.sqrt(dx*dx+dy*dy)<p.radius){ draggedPart=p; p.fixed=true; break; }
-      }
+      if(!startDragPart(mouse.x,mouse.y)) startDragWeapon(mouse.x,mouse.y);
     });
     canvas.addEventListener('touchmove', e=>{
       let touch=e.touches[0];
       mouse.x=touch.clientX-canvas.getBoundingClientRect().left;
       mouse.y=touch.clientY-canvas.getBoundingClientRect().top;
-      weaponSprite.x=mouse.x; weaponSprite.y=mouse.y;
       if(draggedPart){ draggedPart.x=mouse.x; draggedPart.y=mouse.y; }
+      if(draggedWeapon){ weaponSprite.x=mouse.x; weaponSprite.y=mouse.y; }
     });
-    canvas.addEventListener('touchend', ()=>{ if(draggedPart){ draggedPart.fixed=false; draggedPart=null; } weaponSprite.visible=false; });
+    canvas.addEventListener('touchend', ()=>{
+      if(draggedPart){ draggedPart.fixed=false; draggedPart=null; }
+      draggedWeapon=false; weaponSprite.visible=false;
+    });
   }
 
-  // --- Weapons ---
+  // --- Weapon impact ---
   function applyWeaponImpact(part){
-    if(currentWeapon==='bat') { part.oldx-=20; part.oldy-=5; }
-    if(currentWeapon==='hammer'){ part.oldx-=30; part.oldy-=10; }
+    switch(currentWeapon){
+      case 'bat': part.oldx-=20; part.oldy-=5; break;
+      case 'hammer': part.oldx-=30; part.oldy-=10; break;
+      case 'punch': part.oldx-=10; part.oldy-=5; break;
+      case 'bomb': part.oldx-=50; part.oldy-=20; break;
+    }
+    coins++;
+    document.getElementById('coins').innerText=coins;
   }
+
   canvas.addEventListener('click', e=>{
     parts.forEach(p=>{
       let dx=p.x-e.offsetX;
@@ -149,29 +177,34 @@ function initGame(){
     });
   });
 
-  // --- Autonomous standing & stumble ---
-  let walkTime=0;
-  let fallCooldown=0;
-  function autoStand(){
-    walkTime+=0.02;
-    let step=Math.sin(walkTime)*5;
-    leftLeg.y=Math.min(body.y+80+step,floorY-leftLeg.radius);
-    rightLeg.y=Math.min(body.y+80-step,floorY-rightLeg.radius);
-    if(body.y>140) body.y-=0.15;
-    if(head.y>100) head.y-=0.15;
-    // stumble simulation
-    let tilt=Math.abs(leftLeg.y-rightLeg.y);
-    if(tilt>30 && fallCooldown<=0){
-      parts.forEach(p=>p.y+=15); // fall
-      fallCooldown=100;
+  // --- Auto stand after 3s ---
+  function checkFall(){
+    let headBelow = head.y>body.y+50;
+    if(headBelow && fallTimer<=0){
+      fallen=true;
+      fallTimer=180; // 3 seconds at 60fps
     }
-    if(fallCooldown>0) fallCooldown--;
+    if(fallen && fallTimer>0) fallTimer--;
+    if(fallen && fallTimer===0){
+      // reset positions to stand
+      head.y=100; body.y=160; leftLeg.y=240; rightLeg.y=240;
+      fallen=false;
+    }
+  }
+
+  // --- Update & draw ---
+  function autoStand(){
+    // gentle sway legs while standing
+    let t=Date.now()*0.002;
+    leftLeg.y=Math.min(body.y+80+Math.sin(t)*5,floorY-leftLeg.radius);
+    rightLeg.y=Math.min(body.y+80-Math.sin(t)*5,floorY-rightLeg.radius);
   }
 
   function update(){
     for(let i=0;i<5;i++) constraints.forEach(c=>c.update());
     parts.forEach(p=>p.update());
     autoStand();
+    checkFall();
   }
 
   function draw(){
@@ -181,9 +214,9 @@ function initGame(){
     // draw weapon
     if(currentWeapon && weaponSprite.visible){
       ctx.fillStyle='brown';
-      ctx.fillRect(weaponSprite.x-10, weaponSprite.y-5, 20, 10);
+      ctx.fillRect(weaponSprite.x-10,weaponSprite.y-5,20,10);
       ctx.fillStyle='black';
-      ctx.fillText(currentWeapon, weaponSprite.x-15, weaponSprite.y-10);
+      ctx.fillText(currentWeapon, weaponSprite.x-15,weaponSprite.y-10);
     }
   }
 
