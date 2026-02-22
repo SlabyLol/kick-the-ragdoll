@@ -4,6 +4,7 @@ let useMobileDrag = false;
 let currentWeapon = null;
 let weaponSprite = { x: 0, y: 0, visible: false };
 let coins = 0;
+let activeBombs = [];
 
 // UI
 document.getElementById('pcBtn').addEventListener('click', () => startGame(false));
@@ -23,7 +24,6 @@ function startGame(isMobile){
   initGame();
 }
 
-// --- Game Setup ---
 function initGame(){
   const gravity = 0.5;
   const friction = 0.9;
@@ -35,7 +35,7 @@ function initGame(){
   let fallen = false;
   let fallTimer = 0;
 
-  // --- Part ---
+  // --- Ragdoll Parts ---
   class Part{
     constructor(x,y,radius){
       this.x=x; this.y=y;
@@ -87,7 +87,7 @@ function initGame(){
     }
   }
 
-  // --- Create ragdoll ---
+  // --- Ragdoll ---
   let head = new Part(canvas.width/2,100,20);
   let body = new Part(canvas.width/2,160,25);
   let leftArm = new Part(canvas.width/2-40,160,10);
@@ -135,6 +135,10 @@ function initGame(){
     });
     canvas.addEventListener('mouseup', ()=>{
       if(draggedPart){ draggedPart.fixed=false; draggedPart=null; }
+      if(draggedWeapon && currentWeapon==='bomb'){
+        // place bomb
+        activeBombs.push({x:weaponSprite.x,y:weaponSprite.y, timer:60}); // 1 sec timer
+      }
       draggedWeapon=false; weaponSprite.visible=false;
     });
   } else {
@@ -153,48 +157,70 @@ function initGame(){
     });
     canvas.addEventListener('touchend', ()=>{
       if(draggedPart){ draggedPart.fixed=false; draggedPart=null; }
+      if(draggedWeapon && currentWeapon==='bomb'){
+        activeBombs.push({x:weaponSprite.x,y:weaponSprite.y, timer:60});
+      }
       draggedWeapon=false; weaponSprite.visible=false;
     });
   }
 
   // --- Weapon impact ---
-  function applyWeaponImpact(part){
-    switch(currentWeapon){
+  function applyWeaponImpact(part,weapon){
+    switch(weapon){
       case 'bat': part.oldx-=20; part.oldy-=5; break;
       case 'hammer': part.oldx-=30; part.oldy-=10; break;
       case 'punch': part.oldx-=10; part.oldy-=5; break;
-      case 'bomb': part.oldx-=50; part.oldy-=20; break;
     }
     coins++;
     document.getElementById('coins').innerText=coins;
   }
 
-  canvas.addEventListener('click', e=>{
-    parts.forEach(p=>{
-      let dx=p.x-e.offsetX;
-      let dy=p.y-e.offsetY;
-      if(Math.sqrt(dx*dx+dy*dy)<p.radius){ applyWeaponImpact(p); }
-    });
-  });
-
-  // --- Auto stand after 3s ---
-  function checkFall(){
-    let headBelow = head.y>body.y+50;
-    if(headBelow && fallTimer<=0){
-      fallen=true;
-      fallTimer=180; // 3 seconds at 60fps
-    }
-    if(fallen && fallTimer>0) fallTimer--;
-    if(fallen && fallTimer===0){
-      // reset positions to stand
-      head.y=100; body.y=160; leftLeg.y=240; rightLeg.y=240;
-      fallen=false;
+  function checkWeaponHits(){
+    if(!draggedWeapon || !currentWeapon) return;
+    if(currentWeapon==='bat' || currentWeapon==='hammer'){
+      parts.forEach(p=>{
+        let dx = p.x-weaponSprite.x;
+        let dy = p.y-weaponSprite.y;
+        if(Math.sqrt(dx*dx+dy*dy)<p.radius+10){
+          applyWeaponImpact(p,currentWeapon);
+        }
+      });
     }
   }
 
-  // --- Update & draw ---
+  function updateBombs(){
+    for(let i=activeBombs.length-1;i>=0;i--){
+      let bomb=activeBombs[i];
+      bomb.timer--;
+      // check for collision with parts
+      parts.forEach(p=>{
+        let dx=p.x-bomb.x;
+        let dy=p.y-bomb.y;
+        if(Math.sqrt(dx*dx+dy*dy)<p.radius+15){
+          p.oldx-=50; p.oldy-=20;
+          coins+=5;
+          document.getElementById('coins').innerText=coins;
+          bomb.timer=0;
+        }
+      });
+      if(bomb.timer<=0) activeBombs.splice(i,1);
+    }
+  }
+
+  // --- Auto stand ---
+  let fallTimer=0;
+  function checkFall(){
+    let headBelow = head.y>body.y+50;
+    if(headBelow && fallTimer<=0){
+      fallTimer=180; // 3 sec at 60fps
+    }
+    if(fallTimer>0) fallTimer--;
+    if(fallTimer===0 && headBelow){
+      head.y=100; body.y=160; leftLeg.y=240; rightLeg.y=240;
+    }
+  }
+
   function autoStand(){
-    // gentle sway legs while standing
     let t=Date.now()*0.002;
     leftLeg.y=Math.min(body.y+80+Math.sin(t)*5,floorY-leftLeg.radius);
     rightLeg.y=Math.min(body.y+80-Math.sin(t)*5,floorY-rightLeg.radius);
@@ -205,6 +231,8 @@ function initGame(){
     parts.forEach(p=>p.update());
     autoStand();
     checkFall();
+    checkWeaponHits();
+    updateBombs();
   }
 
   function draw(){
@@ -213,11 +241,28 @@ function initGame(){
     parts.forEach(p=>p.draw());
     // draw weapon
     if(currentWeapon && weaponSprite.visible){
-      ctx.fillStyle='brown';
-      ctx.fillRect(weaponSprite.x-10,weaponSprite.y-5,20,10);
-      ctx.fillStyle='black';
-      ctx.fillText(currentWeapon, weaponSprite.x-15,weaponSprite.y-10);
+      ctx.save();
+      switch(currentWeapon){
+        case 'bat':
+          ctx.fillStyle='sienna'; ctx.fillRect(weaponSprite.x-15,weaponSprite.y-5,30,10); break;
+        case 'hammer':
+          ctx.fillStyle='gray'; ctx.fillRect(weaponSprite.x-10,weaponSprite.y-15,20,30); break;
+        case 'punch':
+          ctx.fillStyle='orange'; ctx.beginPath();
+          ctx.arc(weaponSprite.x,weaponSprite.y,10,0,Math.PI*2); ctx.fill(); break;
+        case 'bomb':
+          ctx.fillStyle='black'; ctx.beginPath();
+          ctx.arc(weaponSprite.x,weaponSprite.y,12,0,Math.PI*2); ctx.fill(); break;
+      }
+      ctx.restore();
     }
+    // draw bombs on field
+    activeBombs.forEach(b=>{
+      ctx.fillStyle='black';
+      ctx.beginPath();
+      ctx.arc(b.x,b.y,12,0,Math.PI*2);
+      ctx.fill();
+    });
   }
 
   function loop(){ update(); draw(); requestAnimationFrame(loop); }
