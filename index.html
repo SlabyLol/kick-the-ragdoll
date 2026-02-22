@@ -3,140 +3,76 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kick the Ragdoll Test</title>
+<title>Kick the Ragdoll</title>
 <style>
-body {margin:0; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f0f0f0; height:100vh; position:relative;}
-#startScreen {position:absolute; top:0; left:0; width:100%; height:100%; background:#f0f0f0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10;}
-canvas {border:2px solid #333; background:#fff; display:none;}
-#weaponPanel {margin-top:10px; display:none;}
-#coinDisplay {margin-top:10px; font-size:1.2rem; font-weight:bold; display:none;}
-button {margin:5px; padding:8px 15px; font-size:1rem; cursor:pointer;}
+body {margin:0; font-family:sans-serif; background:#f0f0f0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;}
+button {margin:5px; padding:10px 20px; font-size:1rem; cursor:pointer;}
+#weaponPanel, #coinDisplay, #gameCanvas {display:none; margin-top:10px;}
+canvas {border:2px solid #333; background:#fff;}
 </style>
 </head>
 <body>
 
 <div id="startScreen">
   <h1>Kick the Ragdoll</h1>
-  <p>Select your device:</p>
+  <p>Select device:</p>
   <button id="pcBtn">PC (Mouse)</button>
   <button id="mobileBtn">Mobile (Touch)</button>
 </div>
 
 <canvas id="gameCanvas"></canvas>
-
 <div id="weaponPanel">
   <button data-weapon="bat">Bat</button>
   <button data-weapon="hammer">Hammer</button>
   <button data-weapon="punch">Punch</button>
   <button data-weapon="bomb">Bomb</button>
 </div>
-
 <div id="coinDisplay">Coins: <span id="coins">0</span></div>
 
 <script>
-document.addEventListener("DOMContentLoaded",function(){
+document.addEventListener('DOMContentLoaded', ()=>{
+    const startScreen = document.getElementById('startScreen');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const weaponPanel = document.getElementById('weaponPanel');
+    const coinDisplay = document.getElementById('coinDisplay');
+    let useMobileDrag = false;
 
-const canvas=document.getElementById('gameCanvas');
-const ctx=canvas.getContext('2d');
-let useMobileDrag=false;
-let currentWeapon=null;
-let weaponSprite={x:0,y:0,visible:false};
-let coins=0;
-let activeBombs=[];
+    const pcBtn = document.getElementById('pcBtn');
+    const mobileBtn = document.getElementById('mobileBtn');
 
-// Buttons
-const startScreen=document.getElementById('startScreen');
-document.getElementById('pcBtn').addEventListener('click',()=>startGame(false));
-document.getElementById('mobileBtn').addEventListener('click',()=>startGame(true));
-document.querySelectorAll('#weaponPanel button').forEach(btn=>btn.addEventListener('click',()=>{currentWeapon=btn.dataset.weapon;}));
+    pcBtn.addEventListener('click',()=>startGame(false));
+    mobileBtn.addEventListener('click',()=>startGame(true));
 
-function startGame(isMobile){
-    useMobileDrag=isMobile;
-    startScreen.style.display='none';       // Versteckt Startscreen
-    canvas.style.display='block';           // Canvas sichtbar
-    document.getElementById('weaponPanel').style.display='block';
-    document.getElementById('coinDisplay').style.display='block';
-    canvas.width = window.innerWidth*0.9;
-    canvas.height = window.innerHeight*0.7;
-    initGame();
-}
+    function startGame(isMobile){
+        useMobileDrag = isMobile;
+        startScreen.style.display = 'none';
+        canvas.style.display = 'block';
+        weaponPanel.style.display = 'block';
+        coinDisplay.style.display = 'block';
 
-function initGame(){
-const gravity=0.5, friction=0.9, floorY=canvas.height;
-let mouse={x:0,y:0,down:false}, draggedPart=null, draggedWeapon=false, fallTimer=0;
+        canvas.width = window.innerWidth*0.9;
+        canvas.height = window.innerHeight*0.7;
 
-// --- Parts ---
-class Part{
-  constructor(x,y,radius){this.x=x; this.y=y; this.oldx=x; this.oldy=y; this.radius=radius; this.fixed=false;}
-  update(){
-    if(this.fixed)return;
-    let vx=(this.x-this.oldx)*friction;
-    let vy=(this.y-this.oldy)*friction;
-    this.oldx=this.x; this.oldy=this.y;
-    this.x+=vx; this.y+=vy+gravity;
-    if(this.y+this.radius>floorY){this.y=floorY-this.radius; this.oldy=this.y+vy*-0.5;}
-    if(this.x-this.radius<0){this.x=this.radius; this.oldx=this.x+vx*-0.5;}
-    if(this.x+this.radius>canvas.width){this.x=canvas.width-this.radius; this.oldx=this.x+vx*-0.5;}
-  }
-  draw(){ctx.beginPath(); ctx.fillStyle='red'; ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fill();}
-}
+        initGame();
+    }
 
-class Constraint{
-  constructor(a,b,length){this.a=a; this.b=b; this.length=length;}
-  update(){
-    let dx=this.b.x-this.a.x, dy=this.b.y-this.a.y;
-    let dist=Math.sqrt(dx*dx+dy*dy);
-    let diff=(this.length-dist)/dist/2; let ox=dx*diff, oy=dy*diff;
-    if(!this.a.fixed){this.a.x-=ox; this.a.y-=oy;}
-    if(!this.b.fixed){this.b.x+=ox; this.b.y+=oy;}
-    [this.a,this.b].forEach(p=>{if(p.y+p.radius>floorY)p.y=floorY-p.radius;});
-  }
-  draw(){ctx.beginPath(); ctx.strokeStyle='black'; ctx.lineWidth=4; ctx.moveTo(this.a.x,this.a.y); ctx.lineTo(this.b.x,this.b.y); ctx.stroke();}
-}
-
-// Ragdoll
-let head=new Part(canvas.width/2,100,20);
-let body=new Part(canvas.width/2,160,25);
-let leftArm=new Part(canvas.width/2-40,160,10);
-let rightArm=new Part(canvas.width/2+40,160,10);
-let leftLeg=new Part(canvas.width/2-20,240,10);
-let rightLeg=new Part(canvas.width/2+20,240,10);
-let parts=[head,body,leftArm,rightArm,leftLeg,rightLeg];
-let constraints=[new Constraint(head,body,40), new Constraint(body,leftArm,50), new Constraint(body,rightArm,50), new Constraint(body,leftLeg,80), new Constraint(body,rightLeg,80)];
-
-// Drag
-function startDragPart(x,y){for(let p of parts){let dx=p.x-x,dy=p.y-y;if(Math.sqrt(dx*dx+dy*dy)<p.radius){draggedPart=p;p.fixed=true;return true;}} return false;}
-function startDragWeapon(x,y){if(currentWeapon){weaponSprite.x=x;weaponSprite.y=y;weaponSprite.visible=true;draggedWeapon=true;return true;} return false;}
-
-if(!useMobileDrag){
-  canvas.addEventListener('mousedown',e=>{mouse.down=true; mouse.x=e.offsetX; mouse.y=e.offsetY; if(!startDragPart(mouse.x,mouse.y)) startDragWeapon(mouse.x,mouse.y);});
-  canvas.addEventListener('mousemove',e=>{mouse.x=e.offsetX; mouse.y=e.offsetY; if(draggedPart){draggedPart.x=mouse.x; draggedPart.y=mouse.y;} if(draggedWeapon){weaponSprite.x=mouse.x; weaponSprite.y=mouse.y;}});
-  canvas.addEventListener('mouseup',()=>{if(draggedPart){draggedPart.fixed=false; draggedPart=null;} if(draggedWeapon && currentWeapon==='bomb'){activeBombs.push({x:weaponSprite.x,y:weaponSprite.y,timer:60});} draggedWeapon=false; weaponSprite.visible=false;});
-}else{
-  canvas.addEventListener('touchstart',e=>{let t=e.touches[0]; mouse.x=t.clientX-canvas.getBoundingClientRect().left; mouse.y=t.clientY-canvas.getBoundingClientRect().top; if(!startDragPart(mouse.x,mouse.y)) startDragWeapon(mouse.x,mouse.y);});
-  canvas.addEventListener('touchmove',e=>{let t=e.touches[0]; mouse.x=t.clientX-canvas.getBoundingClientRect().left; mouse.y=t.clientY-canvas.getBoundingClientRect().top; if(draggedPart){draggedPart.x=mouse.x; draggedPart.y=mouse.y;} if(draggedWeapon){weaponSprite.x=mouse.x; weaponSprite.y=mouse.y;}});
-  canvas.addEventListener('touchend',()=>{if(draggedPart){draggedPart.fixed=false; draggedPart=null;} if(draggedWeapon && currentWeapon==='bomb'){activeBombs.push({x:weaponSprite.x,y:weaponSprite.y,timer:60});} draggedWeapon=false; weaponSprite.visible=false;});
-}
-
-// Weapon & physics
-function applyWeaponImpact(part,weapon){switch(weapon){case 'bat': part.oldx-=20; part.oldy-=5; break; case 'hammer': part.oldx-=30; part.oldy-=10; break; case 'punch': part.oldx-=10; part.oldy-=5; break;} coins++; document.getElementById('coins').innerText=coins;}
-function checkWeaponHits(){if(!draggedWeapon || !currentWeapon) return; if(currentWeapon==='bat'||currentWeapon==='hammer'||currentWeapon==='punch'){parts.forEach(p=>{let dx=p.x-weaponSprite.x,dy=p.y-weaponSprite.y;if(Math.sqrt(dx*dx+dy*dy)<p.radius+15){applyWeaponImpact(p,currentWeapon);}});}}
-function updateBombs(){for(let i=activeBombs.length-1;i>=0;i--){let b=activeBombs[i]; b.timer--; parts.forEach(p=>{let dx=p.x-b.x,dy=p.y-b.y;if(Math.sqrt(dx*dx+dy*dy)<p.radius+15){p.oldx-=50; p.oldy-=20; coins+=5; document.getElementById('coins').innerText=coins; b.timer=0;}}); if(b.timer<=0) activeBombs.splice(i,1);}}
-function checkFall(){let headBelow=head.y>body.y+50; if(headBelow && fallTimer<=0) fallTimer=180; if(fallTimer>0) fallTimer--; if(fallTimer===0 && headBelow){head.y=100; body.y=160; leftLeg.y=240; rightLeg.y=240;}}
-function autoStand(){let t=Date.now()*0.002; leftLeg.y=Math.min(body.y+80+Math.sin(t)*5,floorY-leftLeg.radius); rightLeg.y=Math.min(body.y+80-Math.sin(t)*5,floorY-rightLeg.radius);}
-function update(){for(let i=0;i<5;i++) constraints.forEach(c=>c.update()); parts.forEach(p=>p.update()); autoStand(); checkFall(); checkWeaponHits(); updateBombs();}
-function draw(){
-ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-constraints.forEach(c=>c.draw());
-parts.forEach(p=>p.draw());
-if(currentWeapon && weaponSprite.visible){ctx.save();switch(currentWeapon){case 'bat':ctx.fillStyle='sienna'; ctx.fillRect(weaponSprite.x-15,weaponSprite.y-5,30,10); break; case 'hammer':ctx.fillStyle='gray'; ctx.fillRect(weaponSprite.x-10,weaponSprite.y-15,20,30); break; case 'punch':ctx.fillStyle='orange'; ctx.beginPath(); ctx.arc(weaponSprite.x,weaponSprite.y,10,0,Math.PI*2); ctx.fill(); break; case 'bomb':ctx.fillStyle='black'; ctx.beginPath(); ctx.arc(weaponSprite.x,weaponSprite.y,12,0,Math.PI*2); ctx.fill(); break;} ctx.restore();}
-activeBombs.forEach(b=>{ctx.fillStyle='black'; ctx.beginPath(); ctx.arc(b.x,b.y,12,0,Math.PI*2); ctx.fill();});
-}
-function loop(){update(); draw(); requestAnimationFrame(loop);}
-loop();
-
-window.addEventListener('resize',()=>{canvas.width=window.innerWidth*0.9; canvas.height=window.innerHeight*0.7;});
-
+    function initGame(){
+        // einfacher Test-Ragdoll
+        let x = canvas.width/2, y=100;
+        function draw(){ 
+            ctx.fillStyle='#fff';
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle='red';
+            ctx.beginPath();
+            ctx.arc(x,y,30,0,Math.PI*2);
+            ctx.fill();
+            requestAnimationFrame(draw);
+        }
+        draw();
+    }
+});
 </script>
+
 </body>
 </html>
