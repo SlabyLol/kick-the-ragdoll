@@ -7,12 +7,14 @@ body {
   background: #f0f0f0;
 }
 
-h1, p {
+h1 {
   margin: 5px;
 }
 
 canvas {
   border: 2px solid #333;
   background: #fff;
-  touch-action: none;
+  touch-action: none; /* mobile drag */
+  max-width: 100%;
+  height: auto;
 }
