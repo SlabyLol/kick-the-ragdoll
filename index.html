@@ -14,7 +14,7 @@ button{padding:8px 14px; margin:4px; font-size:14px; cursor:pointer;}
 .buy{background:#ffb347;}
 #healthBar{width:220px; height:18px; background:#333; margin:auto;}
 #healthFill{height:100%; width:100%; background:lime;}
-#shopPopup { display:none; position:absolute; top:50px; left:50%; transform:translateX(-50%); background:#fff; border:2px solid #00aaff; padding:20px; width:300px; box-shadow:0 0 10px #000;}
+#shopPopup { display:none; position:absolute; top:50px; left:50%; transform:translateX(-50%); background:#fff; border:2px solid #00aaff; padding:20px; width:320px; box-shadow:0 0 10px #000;}
 #blueBuddy { width:50px; height:50px; background:#00aaff; border-radius:50%; margin:auto; margin-bottom:10px; }
 #dialog { font-size:14px; margin-bottom:10px; }
 #activeWeapon { font-weight:bold; margin-top:5px; color:#333; }
@@ -46,18 +46,18 @@ button{padding:8px 14px; margin:4px; font-size:14px; cursor:pointer;}
     <button class="free" data-weapon="bat">Bat (Free)</button>
     <button class="free" data-weapon="hammer">Hammer (Free)</button>
     <button class="buy" data-weapon="bomb" data-price="100">Bomb (100)</button>
+    <button class="buy" data-weapon="grenade" data-price="120">Grenade (120)</button>
+    <button class="buy" data-weapon="tnt" data-price="200">TNT (200)</button>
     <button class="buy" data-weapon="axe" data-price="150">Axe (150)</button>
     <button class="buy" data-weapon="sword" data-price="200">Sword (200)</button>
     <button class="buy" data-weapon="spear" data-price="250">Spear (250)</button>
-    <button class="buy" data-weapon="grenade" data-price="120">Grenade (120)</button>
-    <button class="buy" data-weapon="tnt" data-price="200">TNT (200)</button>
     <button class="buy" data-weapon="thunderstruck" data-price="300">Thunderstruck (300)</button>
   </div>
   <button id="closeShop">Close Shop</button>
 </div>
 
 <script>
-// English Game Script
+// Game Script (English)
 document.addEventListener("DOMContentLoaded",()=>{
 const canvas=document.getElementById("gameCanvas");
 const ctx=canvas.getContext("2d");
@@ -75,8 +75,8 @@ const weapons={
   sword:{damage:20,mass:2.5,color:"#999"},
   spear:{damage:22,mass:2.8,color:"#666"},
   bomb:{damage:25,radius:120,mass:2,color:"black"},
-  grenade:{damage:20,radius:120,mass:1.5,color:"darkgreen"},
-  tnt:{damage:35,radius:180,mass:3,color:"brown"},
+  grenade:{damage:25,radius:120,mass:1.5,color:"darkgreen"},
+  tnt:{damage:40,radius:180,mass:3,color:"brown"},
   thunderstruck:{damage:30,mass:3,color:"cyan"}
 };
 
@@ -84,7 +84,7 @@ const weapons={
 document.getElementById("pcBtn").addEventListener("click",()=>{document.getElementById("startScreen").style.display="none"; startGame();});
 document.getElementById("mobileBtn").addEventListener("click",()=>{document.getElementById("startScreen").style.display="none"; startGame();});
 
-// Shop open/close
+// Shop
 document.getElementById("openShop").addEventListener("click",()=>{document.getElementById("shopPopup").style.display="block";});
 document.getElementById("closeShop").addEventListener("click",()=>{document.getElementById("shopPopup").style.display="none";});
 
@@ -98,7 +98,10 @@ document.querySelectorAll("#shopPopup button[data-weapon]").forEach(btn=>{
   };
 });
 
-function selectWeapon(w){currentWeapon=w; document.getElementById("activeWeapon").innerText="Current Weapon: "+w.charAt(0).toUpperCase()+w.slice(1);}
+function selectWeapon(w){
+  currentWeapon=w;
+  document.getElementById("activeWeapon").innerText="Current Weapon: "+w.charAt(0).toUpperCase()+w.slice(1);
+}
 
 // Start game
 function startGame(){
@@ -109,7 +112,7 @@ function startGame(){
   loop();
 }
 
-// Ragdoll physics
+// Ragdoll
 class Part{constructor(x,y,r){this.x=x;this.y=y;this.oldx=x;this.oldy=y;this.r=r;}
 update(){let vx=this.x-this.oldx,vy=this.y-this.oldy;this.oldx=this.x;this.oldy=this.y;this.x+=vx;this.y+=vy+gravity;
 if(this.y+this.r>height){this.y=height-this.r; this.oldy=this.y+vy*-0.5;}
@@ -143,7 +146,7 @@ function updateCoins(){document.getElementById("coins").innerText=coins;}
 // Pointer events
 canvas.addEventListener("pointerdown",e=>{
   const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
-  if(["bat","hammer","thunderstruck"].includes(currentWeapon)){weaponObj={x:mx,y:my,type:currentWeapon};}
+  if(["bat","hammer","thunderstruck","axe","sword","spear"].includes(currentWeapon)){weaponObj={x:mx,y:my,type:currentWeapon};}
   if(["bomb","grenade","tnt"].includes(currentWeapon)){bombs.push({x:mx,y:my,vx:0,vy:0,type:currentWeapon,timer:120});}
   ragdollParts.forEach(p=>{let dx=p.x-mx,dy=p.y-my;if(Math.sqrt(dx*dx+dy*dy)<30){draggingPart=p;}});});
 canvas.addEventListener("pointermove",e=>{const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
@@ -162,15 +165,36 @@ function drawThunder(){thunderStrikes.forEach(t=>{ctx.strokeStyle="cyan";ctx.lin
 function update(){
   constraints.forEach(c=>c.update()); ragdollParts.forEach(p=>p.update());
 
+  // Weapon hits
   if(weaponObj){ragdollParts.forEach(p=>{let dx=p.x-weaponObj.x,dy=p.y-weaponObj.y;
-    if(Math.sqrt(dx*dx+dy*dy)<40){p.oldx-=dx*0.8;p.oldy-=dy*0.8;damage(weapons[weaponObj.type].damage);coins+=2;updateCoins();
-      if(weaponObj.type==="thunderstruck"){strikeThunder(weaponObj.x,weaponObj.y,p.x,p.y);shake=10;createParticles(p.x,p.y,"cyan",10);}}});}
+    if(Math.sqrt(dx*dx+dy*dy)<40){
+      p.oldx-=dx*0.8; p.oldy-=dy*0.8; damage(weapons[weaponObj.type].damage); coins+=2; updateCoins();
+      if(weaponObj.type==="thunderstruck"){strikeThunder(weaponObj.x,weaponObj.y,p.x,p.y);shake=10;createParticles(p.x,p.y,"cyan",10);}
+    }
+  });}
 
-  bombs.forEach(b=>{b.vy+=gravity;b.x+=b.vx;b.y+=b.vy;
-    if(b.y+12>height){b.y=height-12;b.vy*=-0.3;b.vx*=0.8;b.timer-=1;}
-    b.timer--; if(b.timer<=0){createParticles(b.x,b.y,"black",30);shake=15;coins+=5;updateCoins(); b.exploded=true;}});
-  bombs=bombs.filter(b=>!b.exploded);
+  // Bomb/Grenade/TNT physics
+  bombs.forEach(b=>{
+    b.vy += gravity; b.x += b.vx; b.y += b.vy;
 
+    if(b.y+12>height){b.y=height-12; b.vy*=-0.3; b.vx*=0.8; b.timer-=1;}
+    b.timer--;
+
+    if(b.timer<=0){
+      let count=30; let damageVal=weapons[b.type].damage; let knockback=10; if(b.type==="tnt"){count=50; damageVal=40; knockback=20;} 
+      else if(b.type==="grenade"){count=40; damageVal=25; knockback=15;}
+      createParticles(b.x,b.y,weapons[b.type].color,count);
+      shake=knockback;
+
+      // Apply knockback to ragdoll
+      ragdollParts.forEach(p=>{let dx=p.x-b.x,dy=p.y-b.y,d=Math.sqrt(dx*dx+dy*dy); if(d<200){p.oldx-=dx/d*knockback; p.oldy-=dy/d*knockback; damage(damageVal); coins+=5; updateCoins();}});
+
+      b.exploded=true;
+    }
+  });
+  bombs = bombs.filter(b=>!b.exploded);
+
+  // Particles
   particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;}); particles=particles.filter(p=>p.life>0);
 
   updateThunder();
@@ -178,25 +202,25 @@ function update(){
 
 // Draw
 function draw(){
-  if(shake>0){ctx.save();ctx.translate(Math.random()*shake*2-shake,Math.random()*shake*2-shake);shake--;}
+  if(shake>0){ctx.save();ctx.translate(Math.random()*shake*2-shake,Math.random()*shake*2-shake); shake--;}
   ctx.clearRect(0,0,width,height);
 
   constraints.forEach(c=>c.draw());
   ragdollParts.forEach(p=>p.draw());
 
   if(weaponObj){ctx.fillStyle=weapons[weaponObj.type].color;
-    if(["bat","thunderstruck"].includes(weaponObj.type)){ctx.fillRect(weaponObj.x-5,weaponObj.y-40,10,80);}
-    if(weaponObj.type==="hammer"){ctx.fillRect(weaponObj.x-4,weaponObj.y-40,8,60);ctx.fillStyle="#555";ctx.fillRect(weaponObj.x-15,weaponObj.y-45,30,15);}}
+    if(["bat","thunderstruck","axe","sword","spear"].includes(weaponObj.type)){ctx.fillRect(weaponObj.x-5,weaponObj.y-40,10,80);}
+    if(weaponObj.type==="hammer"){ctx.fillRect(weaponObj.x-4,weaponObj.y-40,8,60); ctx.fillStyle="#555"; ctx.fillRect(weaponObj.x-15,weaponObj.y-45,30,15);}}
 
-  bombs.forEach(b=>{ctx.fillStyle=weapons[b.type].color;ctx.beginPath();ctx.arc(b.x,b.y,12,0,Math.PI*2);ctx.fill();});
-  particles.forEach(p=>{ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);ctx.fill();});
+  bombs.forEach(b=>{ctx.fillStyle=weapons[b.type].color; ctx.beginPath(); ctx.arc(b.x,b.y,12,0,Math.PI*2); ctx.fill();});
+  particles.forEach(p=>{ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();});
   drawThunder();
 
   if(shake>0){ctx.restore();}
 }
 
 // Loop
-function loop(){update();draw();requestAnimationFrame(loop);}
+function loop(){update(); draw(); requestAnimationFrame(loop);}
 });
 </script>
 </body>
